@@ -17,3 +17,13 @@ __global__ void fExp(float *original, int size) {
     original[index] = expf(original[index]);
   }
 }
+
+extern "C"
+__global__ void fTanh(float *original, int size) {
+  const int X = gridDim.x;
+  const int index = gridDim.y * X * threadIdx.x + X * blockIdx.y + blockIdx.x;
+
+  if(index < size) {
+    original[index] = tanh(original[index]);
+  }
+}

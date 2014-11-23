@@ -6,9 +6,6 @@ import jcuda.Sizeof;
 import jcuda.driver.CUcontext;
 import jcuda.driver.CUdevice;
 import jcuda.driver.CUdeviceptr;
-import jcuda.driver.JCudaDriver;
-import jcuda.jcublas.JCublas;
-import jcuda.runtime.JCuda;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.*;
@@ -22,12 +19,12 @@ import static jcuda.driver.JCudaDriver.*;
  * ksen
  * 16.October.2014 at 11:35
  */
-public class JcudaHelper { //todo(ksen): abstract, other extended
+public class JcudaHelper { //todo(ksenon): from jar (dll to tmp)
 
   public static final String RESOURCES_DIR = "experiments/src/main/resources/jcuda/";
   public static final String LIBS_DIR = RESOURCES_DIR + "libs/";
-  public static final String KERNELS_DIR = RESOURCES_DIR + "kernels/";
-  public static final String PTX_DIR = KERNELS_DIR + "ptxs/";
+  public static final String KERNELS_DIR = RESOURCES_DIR + "kernels/cus";
+  public static final String PTX_DIR = RESOURCES_DIR + "kernels/ptxs/";
 
   static {
     try {
@@ -44,19 +41,31 @@ public class JcudaHelper { //todo(ksen): abstract, other extended
     }
   }
 
-  public static String getKernel(final @NotNull String ptxFileName) {
+  public static String getPtx(final @NotNull String ptxFileName) {
     return PTX_DIR + ptxFileName;
   }
 
-  public static String buildKernel(final @NotNull String cuFileName) {
-    final int extensionPoint = cuFileName.lastIndexOf('.');
-    if(extensionPoint == -1) {
-      throw new RuntimeException("Check extension of file: " + cuFileName);
+  public static void rebuildAll() {
+    final String[] cus = new File(KERNELS_DIR).list();
+
+    for (final String cu : cus) {
+      buildKernel(cu, cuNameToPtx(cu));
     }
+  }
 
-    final String ptxFilePath = PTX_DIR + cuFileName.substring(0, extensionPoint + 1) + "ptx";
+  private static String cuNameToPtx(final String cuFileName) {
+    final int extensionPoint = cuFileName.lastIndexOf('.');
+    if (extensionPoint == -1) {
+      throw new RuntimeException("Wrong extension of the file: " + cuFileName);
+    }
+    return PTX_DIR + cuFileName.substring(0, extensionPoint + 1) + "ptx";
+  }
 
-    buildKernel(KERNELS_DIR + cuFileName, ptxFilePath);
+  public static String buildKernel(final @NotNull String cuFileName) {
+    final String cuFilePath = KERNELS_DIR + cuFileName;
+    final String ptxFilePath = PTX_DIR + cuNameToPtx(cuFilePath);
+
+    buildKernel(cuFilePath, ptxFilePath);
 
     return ptxFilePath;
   }
@@ -68,14 +77,14 @@ public class JcudaHelper { //todo(ksen): abstract, other extended
   public static void buildKernel(final @NotNull File cuFile, final @NotNull File ptxFile) {
     final String command = buildCommand(cuFile, ptxFile);
 
-    int exitCode;
-    String stderr;
-    String stdout;
+    final int exitCode;
+    final String stdErr;
+    final String stdOut;
     try {
       final Process process = Runtime.getRuntime().exec(command);
 
-      stderr = streamToString(process.getErrorStream());
-      stdout = streamToString(process.getInputStream());
+      stdErr = streamToString(process.getErrorStream());
+      stdOut = streamToString(process.getInputStream());
       exitCode = process.waitFor();
     }
     catch (Exception e) {
@@ -85,45 +94,37 @@ public class JcudaHelper { //todo(ksen): abstract, other extended
 
     if (exitCode != 0) {
       System.out.println("nvcc ended with exit code: " + exitCode);
-      System.out.println("stderr:\n" + stderr);
-      System.out.println("stdout:\n" + stdout);
-      throw new RuntimeException("Could not create .ptx file: " + stderr);
+      System.out.println("Std Err:\n" + stdErr);
+      System.out.println("Std Out:\n" + stdOut);
+      throw new RuntimeException("Could not create .ptx file: " + stdErr);
     }
   }
 
   private static String buildCommand(final File cuFile, final File ptxFile) {
-    try {
-      if(!cuFile.isFile()) {
-        throw new RuntimeException(cuFile.getCanonicalPath() + " isn't file.", new IllegalArgumentException());
-      }
-//todo(ksen)
-//      if(ptxFile.exists()) {
-//        throw new RuntimeException(ptxFile.getCanonicalPath() + " already exist.", new IllegalArgumentException());
-//      }
-    } catch (IOException e) {
-      throw new RuntimeException(e);
+    if (!cuFile.isFile()) {
+      throw new RuntimeException(cuFile.getAbsolutePath() + " isn't file.", new IllegalArgumentException());
     }
 
     return new StringBuilder()
-                  .append("nvcc ")
-                  .append("-m ").append(RuntimeUtils.getArchDataModel()).append(' ')
-                  .append("-ptx ").append(cuFile.getAbsolutePath()).append(' ')
-                  .append("-o ").append(ptxFile.getAbsolutePath())
-                  .toString();
+                   .append("nvcc ")
+                   .append("-m ").append(RuntimeUtils.getArchDataModel()).append(' ')
+                   .append("-ptx ").append(cuFile.getAbsolutePath()).append(' ')
+                   .append("-o ").append(ptxFile.getAbsolutePath())
+                   .toString()
+    ;
   }
 
   private static String streamToString(final InputStream inputStream) {
     final StringBuilder builder = new StringBuilder();
 
-    try(final LineNumberReader reader = new LineNumberReader(new InputStreamReader(inputStream))) {
+    try (final LineNumberReader reader = new LineNumberReader(new InputStreamReader(inputStream))) {
       final char[] buffer = new char[8192];
 
       int read;
       while ((read = reader.read(buffer)) != -1) {
         builder.append(buffer, 0, read);
       }
-    }
-    catch (IOException e) {
+    } catch (IOException e) {
       throw new RuntimeException(e);
     }
     return builder.toString();

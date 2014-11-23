@@ -1,6 +1,8 @@
 package com.spbsu.exp.dl.cuda.data.impl;
 
 import com.spbsu.exp.dl.cuda.data.FMatrix;
+import com.spbsu.exp.dl.cuda.data.FVector;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * jmll
@@ -32,6 +34,23 @@ public class FArrayMatrix implements FMatrix {
   @Override
   public float get(final int i, final int j) {
     return data[i + j * rows];
+  }
+
+  @Override
+  public FVector getColumn(final int j) {
+    final float[] destination = new float[rows];
+    System.arraycopy(data, rows * j, destination, 0, rows);
+    return new FArrayVector(destination);
+  }
+
+  @Override
+  public void setColumn(final int j, final @NotNull FVector column) {
+    setColumn(j, column.toArray());
+  }
+
+  @Override
+  public void setColumn(int j, float[] column) {
+    System.arraycopy(column, 0, data, rows * j, rows);
   }
 
   @Override

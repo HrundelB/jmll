@@ -87,13 +87,26 @@ public class JcublasHelper {
     return new FArrayMatrix(A.getRows(), fVVsum(A.toArray(), B.toArray(), 1.f));
   }
 
+  public static FVector fSum(final @NotNull FVector a, final @NotNull FVector b) {
+    return new FArrayVector(fVVsum(a.toArray(), b.toArray(), 1.f));
+  }
+
   public static FMatrix fSubtr(final @NotNull FMatrix A, final @NotNull FMatrix B) {
     return new FArrayMatrix(A.getRows(), fVVsum(B.toArray(), A.toArray(), -1.f));
+  }
+
+  public static FVector fSubtr(final @NotNull FVector a, final @NotNull FVector b) {
+    return new FArrayVector(fVVsum(a.toArray(), b.toArray(), -1.f));
   }
 
   public static FMatrix fScale(final @NotNull FMatrix A, final float alpha) {
     fVscale(A.toArray(), alpha);
     return A;
+  }
+
+  public static FVector fScale(final @NotNull FVector a, final float alpha) {
+    fVscale(a.toArray(), alpha);
+    return a;
   }
 
   private static float fDot(final int n, final float[] ha, final float[] hb) {
