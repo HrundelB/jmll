@@ -1,4 +1,4 @@
-package com.spbsu.exp.dl.cuda.data;
+package com.spbsu.exp.cuda.data;
 
 /**
  * jmll

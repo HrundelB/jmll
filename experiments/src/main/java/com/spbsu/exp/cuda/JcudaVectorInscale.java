@@ -1,8 +1,8 @@
-package com.spbsu.exp.dl.cuda;
+package com.spbsu.exp.cuda;
 
-import com.spbsu.exp.dl.cuda.data.FMatrix;
-import com.spbsu.exp.dl.cuda.data.FVector;
-import com.spbsu.exp.dl.cuda.data.impl.FArrayVector;
+import com.spbsu.exp.cuda.data.FMatrix;
+import com.spbsu.exp.cuda.data.FVector;
+import com.spbsu.exp.cuda.data.impl.FArrayVector;
 import jcuda.Pointer;
 import jcuda.Sizeof;
 import jcuda.driver.*;
@@ -51,55 +51,41 @@ public class JcudaVectorInscale { //todo(ksen): reformat cp-ps
     return new FArrayVector(a);
   }
 
-  public static void fSigmoid(final @NotNull FVector a) {
-    final String cudaKernel = JcudaHelper.getPtx("VectorInscale.ptx");
-    JCudaDriver.setExceptionsEnabled(true);
-
-    JCudaDriver.cuInit(0);
-    final CUdevice device = new CUdevice();
-    JCudaDriver.cuDeviceGet(device, 0);
-    final CUcontext context = new CUcontext();
-    JCudaDriver.cuCtxCreate(context, 0, device);
-
-    final CUmodule module = new CUmodule();
-    JCudaDriver.cuModuleLoad(module, cudaKernel);
-
-    final CUfunction function = new CUfunction();
-    JCudaDriver.cuModuleGetFunction(function, module, "fSigmoid");
-
-    final float[] ha = a.toArray();
-    final int length = ha.length;
-
-    final CUdeviceptr da = new CUdeviceptr();
-    JCudaDriver.cuMemAlloc(da, length * Sizeof.FLOAT);
-    JCudaDriver.cuMemcpyHtoD(da, Pointer.to(ha), length * Sizeof.FLOAT);
-
-    Pointer kernelParameters = Pointer.to(
-        Pointer.to(da),
-        Pointer.to(new int[]{length})
-    );
-
-    int pow = upper2pow(length);
-    int x = (int)Math.pow(pow, 1. / 3.);
-    int z = x > 1024 ? 1024 : x;
-    int y = pow / (z * x);
-    JCudaDriver.cuLaunchKernel(function,
-        x, y, 1,
-        z, 1, 1,
-        0, null,
-        kernelParameters, null
-    );
-
-    JCudaDriver.cuCtxSynchronize();
-
-    JCudaDriver.cuMemcpyDtoH(Pointer.to(ha), da, length * Sizeof.FLOAT);
-
-    JCudaDriver.cuMemFree(da);
-
-    JCudaDriver.cuCtxDestroy(context);
+  public static FMatrix fSigmoid(final @NotNull FMatrix A) {
+    fSigmoid(A.toArray());
+    return A;
   }
 
-  public static void fExp(final @NotNull FVector a) {
+  public static FVector fSigmoid(final @NotNull FVector a) {
+    fSigmoid(a.toArray());
+    return a;
+  }
+
+  public static FMatrix fTanh(final @NotNull FMatrix A) {
+    fTanh(A.toArray());
+    return A;
+  }
+
+  public static FVector fTanh(final @NotNull FVector a) {
+    fTanh(a.toArray());
+    return a;
+  }
+
+  public static FMatrix fExp(final @NotNull FMatrix A) {
+    fExp(A.toArray());
+    return A;
+  }
+
+  public static FVector fExp(final @NotNull FVector a) {
+    fExp(a.toArray());
+    return a;
+  }
+
+  public static FMatrix fRepeatAsRow(final @NotNull FVector a, final int times) {
+    throw new UnsupportedOperationException();
+  }
+
+  public static void fExp(final float[] ha) {
     final String cudaKernel = JcudaHelper.getPtx("VectorInscale.ptx");
     JCudaDriver.setExceptionsEnabled(true);
 
@@ -115,7 +101,6 @@ public class JcudaVectorInscale { //todo(ksen): reformat cp-ps
     final CUfunction function = new CUfunction();
     JCudaDriver.cuModuleGetFunction(function, module, "fExp");
 
-    final float[] ha = a.toArray();
     final int length = ha.length;
 
     final CUdeviceptr da = new CUdeviceptr();
@@ -147,12 +132,51 @@ public class JcudaVectorInscale { //todo(ksen): reformat cp-ps
     JCudaDriver.cuCtxDestroy(context);
   }
 
-  public static void fTanh(final @NotNull FMatrix A) {
-    fTanh(A.toArray());
-  }
+  private static void fSigmoid(final float[] ha) {
+    final String cudaKernel = JcudaHelper.getPtx("VectorInscale.ptx");
+    JCudaDriver.setExceptionsEnabled(true);
 
-  public static void fTanh(final @NotNull FVector a) {
-    fTanh(a.toArray());
+    JCudaDriver.cuInit(0);
+    final CUdevice device = new CUdevice();
+    JCudaDriver.cuDeviceGet(device, 0);
+    final CUcontext context = new CUcontext();
+    JCudaDriver.cuCtxCreate(context, 0, device);
+
+    final CUmodule module = new CUmodule();
+    JCudaDriver.cuModuleLoad(module, cudaKernel);
+
+    final CUfunction function = new CUfunction();
+    JCudaDriver.cuModuleGetFunction(function, module, "fSigmoid");
+
+    final int length = ha.length;
+
+    final CUdeviceptr da = new CUdeviceptr();
+    JCudaDriver.cuMemAlloc(da, length * Sizeof.FLOAT);
+    JCudaDriver.cuMemcpyHtoD(da, Pointer.to(ha), length * Sizeof.FLOAT);
+
+    Pointer kernelParameters = Pointer.to(
+        Pointer.to(da),
+        Pointer.to(new int[]{length})
+    );
+
+    int pow = upper2pow(length);
+    int x = (int)Math.pow(pow, 1. / 3.);
+    int z = x > 1024 ? 1024 : x;
+    int y = pow / (z * x);
+    JCudaDriver.cuLaunchKernel(function,
+        x, y, 1,
+        z, 1, 1,
+        0, null,
+        kernelParameters, null
+    );
+
+    JCudaDriver.cuCtxSynchronize();
+
+    JCudaDriver.cuMemcpyDtoH(Pointer.to(ha), da, length * Sizeof.FLOAT);
+
+    JCudaDriver.cuMemFree(da);
+
+    JCudaDriver.cuCtxDestroy(context);
   }
 
   private static void fTanh(final float[] ha) {

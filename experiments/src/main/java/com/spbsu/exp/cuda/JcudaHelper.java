@@ -1,4 +1,4 @@
-package com.spbsu.exp.dl.cuda;
+package com.spbsu.exp.cuda;
 
 import com.spbsu.commons.system.RuntimeUtils;
 import jcuda.Pointer;

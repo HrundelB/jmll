@@ -1,6 +1,6 @@
-package com.spbsu.exp.dl.cuda.data.impl;
+package com.spbsu.exp.cuda.data.impl;
 
-import com.spbsu.exp.dl.cuda.data.FVector;
+import com.spbsu.exp.cuda.data.FVector;
 
 /**
  * jmll

@@ -1,7 +1,7 @@
-package com.spbsu.exp.dl.cuda.data.impl;
+package com.spbsu.exp.cuda.data.impl;
 
-import com.spbsu.exp.dl.cuda.data.FMatrix;
-import com.spbsu.exp.dl.cuda.data.FVector;
+import com.spbsu.exp.cuda.data.FMatrix;
+import com.spbsu.exp.cuda.data.FVector;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -12,7 +12,6 @@ import org.jetbrains.annotations.NotNull;
 public class FArrayMatrix implements FMatrix {
 
   private float[] data;
-
   private int rows;
 
   public FArrayMatrix(final int rows, final int columns) {
@@ -41,6 +40,13 @@ public class FArrayMatrix implements FMatrix {
     final float[] destination = new float[rows];
     System.arraycopy(data, rows * j, destination, 0, rows);
     return new FArrayVector(destination);
+  }
+
+  @Override
+  public FMatrix getColumnsRange(final int begin, final int length) {
+    final float[] destination = new float[rows * length];
+    System.arraycopy(data, rows * begin, destination, 0, rows * length);
+    return new FArrayMatrix(rows, destination);
   }
 
   @Override

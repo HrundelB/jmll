@@ -1,4 +1,4 @@
-package com.spbsu.exp.dl.cuda.data;
+package com.spbsu.exp.cuda.data;
 
 import org.jetbrains.annotations.NotNull;
 
@@ -14,6 +14,8 @@ public interface FMatrix {
   float get(final int i, final int j);
 
   FVector getColumn(final int j);
+
+  FMatrix getColumnsRange(final int begin, final int length);
 
   void setColumn(final int j, final @NotNull FVector column);
 

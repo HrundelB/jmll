@@ -1,21 +1,16 @@
-package com.spbsu.exp.dl.cuda;
+package com.spbsu.exp.cuda;
 
+import org.junit.Test;
 import com.spbsu.commons.math.vectors.*;
-import com.spbsu.commons.math.vectors.impl.basis.MxBasisImpl;
 import com.spbsu.commons.math.vectors.impl.mx.ColsVecArrayMx;
-import com.spbsu.commons.math.vectors.impl.mx.RowsVecArrayMx;
-import com.spbsu.commons.math.vectors.impl.mx.SparseMx;
 import com.spbsu.commons.math.vectors.impl.mx.VecBasedMx;
 import com.spbsu.commons.math.vectors.impl.vectors.ArrayVec;
-import com.spbsu.commons.seq.regexp.Matcher;
-import com.spbsu.exp.dl.cuda.data.FMatrix;
-import com.spbsu.exp.dl.cuda.data.FVector;
-import com.spbsu.exp.dl.cuda.data.impl.FArrayMatrix;
-import com.spbsu.exp.dl.cuda.data.impl.FArrayVector;
+import com.spbsu.exp.cuda.data.FMatrix;
+import com.spbsu.exp.cuda.data.FVector;
+import com.spbsu.exp.cuda.data.impl.FArrayMatrix;
+import com.spbsu.exp.cuda.data.impl.FArrayVector;
 import org.junit.Assert;
-import org.junit.Test;
 
-import java.util.Arrays;
 import java.util.Random;
 
 /**
@@ -25,71 +20,21 @@ import java.util.Random;
  */
 public class JcublasHelperTest extends Assert {
 
-  @Test
-  public void testMult() throws Exception {
-    final int m = 1000;
-    final int k = 2000;
-    final int n = 1000;
+  private final int M = 100;
+  private final int N = 200;
+  private final int K = 300;
 
-    final ColsVecArrayMx A = new ColsVecArrayMx(m, k);
-    final ColsVecArrayMx B = new ColsVecArrayMx(k, n);
-
-    final Random random = new Random();
-    for (int i = 0; i < m; i++) {
-      for (int j = 0; j < k; j++) {
-        A.set(i, j, random.nextDouble());
-      }
-    }
-    for (int i = 0; i < k; i++) {
-      for (int j = 0; j < n; j++) {
-        B.set(i, j, random.nextDouble());
-      }
-    }
-
-    long begin = System.currentTimeMillis();
-    final Mx C = MxTools.multiply(A, B);
-    System.out.println("CPU: " + (System.currentTimeMillis() - begin));
-    begin = System.currentTimeMillis();
-    final Mx D = JcublasHelper.mult(A, B);
-    System.out.println("GPU: " + (System.currentTimeMillis() - begin));
-
-    assertTrue(C.rows() == D.rows());
-    assertTrue(C.columns() == D.columns());
-
-    double sum = 0;
-    for (int i = 0; i < C.rows(); i++) {
-      for (int j = 0; j < C.columns(); j++) {
-        sum += Math.pow(C.get(i, j) - D.get(i, j), 2);
-      }
-    }
-    System.out.println("RMSE: " + Math.sqrt(sum / C.toArray().length));
-  }
+  private final double epsilon = 1e-6;
 
   @Test
-  public void testSpeed() throws Exception {
-    for (int a = 1; a < 1000; a++) {
-      final ColsVecArrayMx A = new ColsVecArrayMx(a, a);
-      final ColsVecArrayMx B = new ColsVecArrayMx(a, a);
+  public void testDMult() throws Exception {
+    final ColsVecArrayMx A = getMx(M, N);
+    final ColsVecArrayMx B = getMx(N, K);
 
-      final Random random = new Random();
-      for (int i = 0; i < a; i++) {
-        for (int j = 0; j < a; j++) {
-          A.set(i, j, random.nextDouble());
-        }
-      }
-      for (int i = 0; i < a; i++) {
-        for (int j = 0; j < a; j++) {
-          B.set(i, j, random.nextDouble());
-        }
-      }
+    final Mx expected = MxTools.multiply(A, B);
+    final ColsVecArrayMx actual = JcublasHelper.dMult(A, B);
 
-      long begin = System.currentTimeMillis();
-      MxTools.multiply(A, B);
-      System.out.println(a + " CPU: " + (System.currentTimeMillis() - begin));
-      begin = System.currentTimeMillis();
-      JcublasHelper.mult(A, B);
-      System.out.println(a + " GPU: " + (System.currentTimeMillis() - begin));
-    }
+    assertTrue(compare(expected, actual) < epsilon);
   }
 
   @Test
@@ -359,97 +304,30 @@ public class JcublasHelperTest extends Assert {
 
   // -------------------------------------------------------------------------------------------------------------------
 
-  @Test
-  public void testMxEquals() throws Exception {
-    final Mx[] mxes = getMxes();
-    final Mx[] clone = mxes.clone();
+  private ColsVecArrayMx getMx(final int m, final int n) {
+    final ColsVecArrayMx mx = new ColsVecArrayMx(m, n);
 
-    final String pattern = "%-20s %-20s %-20s %-20s %-20s";
-    String[] line = new String[]{
-        "Mx \\ Mx",
-        mxes[0].getClass().getSimpleName(),
-        mxes[1].getClass().getSimpleName(),
-        mxes[2].getClass().getSimpleName(),
-        mxes[3].getClass().getSimpleName()
-    };
-    System.out.println(String.format(pattern, line));
-    System.out.println();
-
-    for (int i = 0; i < 4; i++) {
-      line[0] = mxes[i].getClass().getSimpleName();
-      for (int j = 0; j < 4; j++) {
-        line[j + 1] = mxes[i].equals(clone[j]) + "";
-      }
-      System.out.println(String.format(pattern, line));
-    }
-    System.out.println();
-
-    line = new String[]{
-        "Mx \\ Mx",
-        mxes[0].getClass().getSimpleName(),
-        mxes[1].getClass().getSimpleName(),
-        mxes[2].getClass().getSimpleName(),
-        mxes[3].getClass().getSimpleName()
-    };
-    System.out.println(String.format(pattern, line));
-    System.out.println();
-
-    for (int i = 0; i < 4; i++) {
-      line[0] = mxes[i].getClass().getSimpleName();
-      for (int j = 0; j < 4; j++) {
-        line[j + 1] = compare(mxes[i], clone[j]) + "";
-      }
-      System.out.println(String.format(pattern, line));
-    }
-  }
-
-  @Test
-  public void testMxRepresentations() throws Exception {
-    final Mx[] mxes = getMxes();
-    for (Mx mx : mxes) {
-      System.out.println(mx.getClass().getSimpleName() + "\t" + Arrays.toString(mx.toArray()));
-    }
-    System.out.println("T:\n");
-    for (Mx mx : mxes) {
-      System.out.println(mx.getClass().getSimpleName() + "\t" + Arrays.toString(MxTools.transpose(mx).toArray()));
-    }
-  }
-
-  private Mx[] getMxes() {
-    final Mx vbm = new VecBasedMx(2, 2)
-        .set(0, 0, 0)
-        .set(0, 1, 1)
-        .set(1, 0, 2)
-        .set(1, 1, 3);
-    final Mx cvam = new ColsVecArrayMx(new Vec[]{
-        new ArrayVec(0, 1),
-        new ArrayVec(2, 3)}
-    );
-    final Mx rcam = new RowsVecArrayMx(new Vec[]{
-        new ArrayVec(0, 1),
-        new ArrayVec(2, 3)
-    });
-    final Mx sm = new SparseMx<MxBasis>(new MxBasisImpl(2, 2))
-        .set(0, 0, 0)
-        .set(0, 1, 1)
-        .set(1, 0, 2)
-        .set(1, 1, 3);
-
-    return new Mx[]{vbm, cvam, rcam, sm};
-  }
-
-  private boolean compare(Mx A, Mx B) {
-    if (A.rows() != B.rows() || A.columns() != B.columns()) {
-      return false;
-    }
-    for (int i = 0; i < A.rows(); i++) {
-      for (int j = 0; j < A.columns(); j++) {
-        if (A.get(i, j) != B.get(i, j)) {
-          return false;
-        }
+    final Random random = new Random();
+    for (int i = 0; i < m; i++) {
+      for (int j = 0; j < n; j++) {
+        mx.set(i, j, random.nextDouble());
       }
     }
-    return true;
+    return mx;
+  }
+
+  private double compare(final Mx expected, final Mx actual) {
+    if (expected.rows() != actual.rows() || expected.columns() != actual.columns()) {
+      return Double.POSITIVE_INFINITY;
+    }
+
+    double error = 0;
+    for (int i = 0; i < expected.rows(); i++) {
+      for (int j = 0; j < expected.columns(); j++) {
+        error += Math.pow(expected.get(i, j) - actual.get(i, j), 2);
+      }
+    }
+    return Math.sqrt(error / (expected.rows() * expected.columns()));
   }
 
 }

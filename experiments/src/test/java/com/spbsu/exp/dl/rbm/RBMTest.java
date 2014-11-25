@@ -1,7 +1,8 @@
 package com.spbsu.exp.dl.rbm;
 
-import com.spbsu.exp.dl.cuda.data.FVector;
-import com.spbsu.exp.dl.cuda.data.impl.FArrayVector;
+import com.spbsu.exp.cuda.data.FVector;
+import com.spbsu.exp.cuda.data.impl.FArrayVector;
+import com.spbsu.exp.dl.Init;
 import com.xeiam.xchart.Chart;
 import com.xeiam.xchart.QuickChart;
 import com.xeiam.xchart.SwingWrapper;
@@ -34,7 +35,7 @@ public class RBMTest {
     }
 
     final RestrictedBoltzmannMachine rbm = new RestrictedBoltzmannMachine(dim, hiddenUnits);
-    rbm.init(RestrictedBoltzmannMachine.Init.IDENTITY);
+    rbm.init(Init.IDENTITY);
 
     for (int i = 0; i < epochs; i++) {
       for (int j = 0; j < ds.size(); j++) {

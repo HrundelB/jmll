@@ -1,10 +1,11 @@
 package com.spbsu.exp.dl.rbm;
 
-import com.spbsu.exp.dl.cuda.data.FMatrix;
-import com.spbsu.exp.dl.cuda.data.FVector;
-import com.spbsu.exp.dl.cuda.data.impl.FArrayMatrix;
-import com.spbsu.exp.dl.cuda.data.impl.FArrayVector;
 import org.jetbrains.annotations.NotNull;
+import com.spbsu.exp.cuda.data.FMatrix;
+import com.spbsu.exp.cuda.data.FVector;
+import com.spbsu.exp.cuda.data.impl.FArrayMatrix;
+import com.spbsu.exp.cuda.data.impl.FArrayVector;
+import com.spbsu.exp.dl.Init;
 
 import java.io.File;
 import java.io.IOException;
@@ -13,8 +14,8 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.Random;
 
-import static com.spbsu.exp.dl.cuda.JcublasHelper.*;
-import static com.spbsu.exp.dl.cuda.JcudaVectorInscale.*;
+import static com.spbsu.exp.cuda.JcublasHelper.*;
+import static com.spbsu.exp.cuda.JcudaVectorInscale.*;
 
 /**
  * jmll
@@ -24,39 +25,72 @@ import static com.spbsu.exp.dl.cuda.JcudaVectorInscale.*;
 public class RestrictedBoltzmannMachine {
 
   private FMatrix W;
-  private FVector h;
-  private FVector a;
   private FVector b;
+  private FVector c;
 
   public RestrictedBoltzmannMachine(final int vuNumber, final int huNumber) {
     W = new FArrayMatrix(vuNumber, huNumber);
-    h = new FArrayVector(huNumber);
-    a = new FArrayVector(vuNumber);
-    b = new FArrayVector(huNumber);
+    b = new FArrayVector(vuNumber);
+    c = new FArrayVector(huNumber);
+  }
+
+  public RestrictedBoltzmannMachine(
+      final @NotNull FMatrix W,
+      final @NotNull FVector b,
+      final @NotNull FVector c
+  ) {
+    this.W = W;
+    this.b = b;
+    this.c = c;
+  }
+
+  public RestrictedBoltzmannMachine(final @NotNull String path2model) {
+    read(path2model);
   }
 
   public void init(final @NotNull Init init) {
+    final int rows = W.getRows();
+    final int columns = W.getColumns();
+
     switch (init) {
       case RANDOM_SMALL: {
         final Random random = new Random();
         final float scale = 0.2f;
         final float shift = scale / 2.f;
-        for (int i = 0; i < W.getRows(); i++) {
-          for (int j = 0; j < W.getColumns(); j++) {
+
+        for (int i = 0; i < rows; i++) {
+          for (int j = 0; j < columns; j++) {
             W.set(i, j, random.nextFloat() * scale - shift);
           }
+        }
+        for (int i = 0; i < rows; i++) {
+          b.set(i, random.nextFloat() * scale - shift);
+        }
+        for (int i = 0; i < columns; i++) {
+          c.set(i, random.nextFloat() * scale - shift);
         }
         break;
       }
       case IDENTITY: {
-        for (int i = 0; i < W.getRows(); i++) {
-          for (int j = 0; j < W.getColumns(); j++) {
+        for (int i = 0; i < rows; i++) {
+          for (int j = 0; j < columns; j++) {
             W.set(i, j, 1.f);
           }
+        }
+        for (int i = 0; i < rows; i++) {
+          b.set(i, 1.f);
+        }
+        for (int i = 0; i < columns; i++) {
+          c.set(i, 1.f);
         }
         break;
       }
     }
+  }
+
+  public FMatrix batchPositive(final @NotNull FMatrix X) {
+    fSum(fRepeatAsRow(c, X.getRows()), fMult(X, W));
+    return null;
   }
 
   // CD-1
@@ -75,46 +109,6 @@ public class RestrictedBoltzmannMachine {
     return negative(h);
   }
 
-  public void read(final @NotNull String path) {
-    try(
-        RandomAccessFile raf = new RandomAccessFile(path, "rw");
-        final FileChannel fileChannel = raf.getChannel()
-    ) {
-      final ByteBuffer buffer = fileChannel.map(FileChannel.MapMode.READ_WRITE, 0, 4 * (W.getRows() * W.getColumns() + 2));
-
-      W = new FArrayMatrix(buffer.getInt(), buffer.getInt());
-
-      for (int i = 0; i < W.getColumns(); i++) {
-        for (int j = 0; j < W.getRows(); j++) {
-          W.set(j, i, buffer.getFloat());
-        }
-      }
-    }
-    catch (IOException e) {
-      throw new RuntimeException(e);
-    }
-  }
-
-  public void write(final @NotNull String path) {
-    try(
-        RandomAccessFile raf = new RandomAccessFile(new File(path), "rw");
-        final FileChannel fileChannel = raf.getChannel()
-    ) {
-      final ByteBuffer buffer = fileChannel.map(FileChannel.MapMode.READ_WRITE, 0, 4 * (W.getRows() * W.getColumns() + 2));
-
-      buffer.putInt(W.getRows());
-      buffer.putInt(W.getColumns());
-
-      final float[] floats = W.toArray();
-      for (int i = 0; i < floats.length; i++) {
-        buffer.putFloat(floats[i]);
-      }
-    }
-    catch (IOException e) {
-      throw new RuntimeException(e);
-    }
-  }
-
   private FVector positive(FVector v) {
     final FVector z = fMult(v, W);
     FTanh(z);
@@ -127,13 +121,59 @@ public class RestrictedBoltzmannMachine {
     return zP;
   }
 
-  private float energy(final FVector v, final FVector h) {   // +regularization sum(log z)
-    return -fDot(a, v) - fDot(b, h) - fDot(fMult(v, W), h);
+  public void read(final @NotNull String path) {
+    try(
+        final RandomAccessFile raf = new RandomAccessFile(path, "rw");
+        final FileChannel fileChannel = raf.getChannel()
+    ) {
+      final ByteBuffer buffer = fileChannel.map(FileChannel.MapMode.READ_WRITE, 0, 4 * fileChannel.size());
+
+      final int vuNumber = buffer.getInt();
+      final int huNumber = buffer.getInt();
+
+      W = new FArrayMatrix(vuNumber, read(vuNumber * huNumber, buffer));
+      b = new FArrayVector(read(vuNumber, buffer));
+      c = new FArrayVector(read(huNumber, buffer));
+    }
+    catch (IOException e) {
+      throw new RuntimeException(e);
+    }
   }
 
-  public enum Init {
-    RANDOM_SMALL,
-    IDENTITY
+  private float[] read(final int size, final ByteBuffer buffer) {
+    final float[] array = new float[size];
+    for (int i = 0; i < size; i++) {
+      array[i] = buffer.getFloat();
+    }
+    return array;
+  }
+
+  public void write(final @NotNull String path) {
+    final int vuNumber = W.getRows();
+    final int huNumber = W.getColumns();
+    final long size = 2 + 4 * (vuNumber * huNumber + vuNumber + huNumber);
+    try(
+        final RandomAccessFile raf = new RandomAccessFile(new File(path), "rw");
+        final FileChannel fileChannel = raf.getChannel()
+    ) {
+      final ByteBuffer buffer = fileChannel.map(FileChannel.MapMode.READ_WRITE, 0, size);
+
+      buffer.putInt(vuNumber);
+      buffer.putInt(huNumber);
+
+      write(W.toArray(), buffer);
+      write(b.toArray(), buffer);
+      write(c.toArray(), buffer);
+    }
+    catch (IOException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  private void write(final float[] array, final ByteBuffer buffer) {
+    for (int i = 0; i < array.length; i++) {
+      buffer.putFloat(array[i]);
+    }
   }
 
 }

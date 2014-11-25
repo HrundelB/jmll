@@ -1,27 +1,27 @@
-package com.spbsu.exp.dl.cuda;
+package com.spbsu.exp.cuda;
 
+import org.jetbrains.annotations.NotNull;
 import com.spbsu.commons.math.vectors.impl.mx.ColsVecArrayMx;
-import com.spbsu.exp.dl.cuda.data.FMatrix;
-import com.spbsu.exp.dl.cuda.data.FVector;
-import com.spbsu.exp.dl.cuda.data.impl.FArrayMatrix;
-import com.spbsu.exp.dl.cuda.data.impl.FArrayVector;
+import com.spbsu.exp.cuda.data.FMatrix;
+import com.spbsu.exp.cuda.data.FVector;
+import com.spbsu.exp.cuda.data.impl.FArrayMatrix;
+import com.spbsu.exp.cuda.data.impl.FArrayVector;
 import jcuda.Pointer;
 import jcuda.Sizeof;
 import jcuda.jcublas.JCublas;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * jmll
  * ksen
  * 14.October.2014 at 12:23
  */
-public class JcublasHelper {
+public class JcublasHelper { //todo(ksenon): row-major support
 
   static {
     JcudaHelper.warmUp();
   }
 
-  public static ColsVecArrayMx mult(final @NotNull ColsVecArrayMx A, final @NotNull ColsVecArrayMx B) {
+  public static ColsVecArrayMx dMult(final @NotNull ColsVecArrayMx A, final @NotNull ColsVecArrayMx B) {
     final int m = A.rows();
     final int k = A.columns();
     final int n = B.columns();
@@ -61,10 +61,19 @@ public class JcublasHelper {
   }
 
   public static FMatrix fMult(final @NotNull FMatrix A, final @NotNull FMatrix B) {
-    final int rows = A.getRows();
-    final float[] C = fMMmult(rows, A.getColumns(), B.getColumns(), A.toArray(), B.toArray());
+    return fMult(A, false, B, false);
+  }
 
-    return new FArrayMatrix(rows, C);
+  public static FMatrix fMult(
+      final @NotNull FMatrix A,
+      final boolean transA,
+      final @NotNull FMatrix B,
+      final boolean transB
+  ) {
+    return new FArrayMatrix(
+        A.getRows(),
+        fMMmult(A.getRows(), A.getColumns(), B.getColumns(), A.toArray(), transA, B.toArray(), transB)
+    );
   }
 
   public static float fDot(final @NotNull FVector a, final @NotNull FVector b) {
@@ -80,7 +89,10 @@ public class JcublasHelper {
   }
 
   public static FMatrix fMult(final @NotNull FVector a, final @NotNull FVector b) {
-    return new FArrayMatrix(a.getDimension(), fMMmult(a.getDimension(), 1, b.getDimension(), a.toArray(), b.toArray()));
+    return new FArrayMatrix(
+        a.getDimension(),
+        fMMmult(a.getDimension(), 1, b.getDimension(), a.toArray(), false, b.toArray(), false)
+    );
   }
 
   public static FMatrix fSum(final @NotNull FMatrix A, final @NotNull FMatrix B) {
@@ -210,7 +222,15 @@ public class JcublasHelper {
     return hc;
   }
 
-  private static float[] fMMmult(final int m, final int k, final int n, final float[] hA, final float[] hB) {
+  private static float[] fMMmult(
+      final int m,
+      final int k,
+      final int n,
+      final float[] hA,
+      final boolean tA,
+      final float[] hB,
+      final boolean tB
+  ) {
     final int mk = m * k;
     final int kn = k * n;
     final int mn = m * n;
@@ -231,7 +251,7 @@ public class JcublasHelper {
     JCublas.cublasSetVector(kn, Sizeof.FLOAT, Pointer.to(hB), 1, dB, 1);
     JCublas.cublasSetVector(mn, Sizeof.FLOAT, Pointer.to(hC), 1, dC, 1);
 
-    JCublas.cublasSgemm('n', 'n', m, n, k, 1.f, dA, m, dB, k, 0.f, dC, m);
+    JCublas.cublasSgemm(tA ? 't' : 'n', tB ? 't' : 'n', m, n, k, 1.f, dA, m, dB, k, 0.f, dC, m);
 
     JCublas.cublasGetVector(mn, Sizeof.FLOAT, dC, 1, Pointer.to(hC), 1);
 

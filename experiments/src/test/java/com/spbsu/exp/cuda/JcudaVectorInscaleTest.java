@@ -1,8 +1,10 @@
-package com.spbsu.exp.dl.cuda;
+package com.spbsu.exp.cuda;
 
+import com.spbsu.commons.math.vectors.Vec;
 import com.spbsu.commons.math.vectors.impl.vectors.ArrayVec;
-import com.spbsu.exp.dl.cuda.data.FVector;
-import com.spbsu.exp.dl.cuda.data.impl.FArrayVector;
+import com.spbsu.exp.cuda.JcudaVectorInscale;
+import com.spbsu.exp.cuda.data.FVector;
+import com.spbsu.exp.cuda.data.impl.FArrayVector;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -33,11 +35,7 @@ public class JcudaVectorInscaleTest extends Assert { // speedup after 2.5M (cuz 
     }
     JcudaVectorInscale.fSigmoid(a);
 
-    double sum = 0;
-    for (int i = 0; i < n; i++) {
-      sum += Math.pow(a.get(i) - a2.get(i), 2);
-    }
-    assertTrue(Math.sqrt(sum / n) < 1e-4); // s and d comparison
+    compare(a, a2);
   }
 
   @Test
@@ -58,11 +56,15 @@ public class JcudaVectorInscaleTest extends Assert { // speedup after 2.5M (cuz 
     }
     JcudaVectorInscale.fExp(a);
 
+    compare(a, a2);
+  }
+
+  private void compare(final FVector a, final Vec b) {
     double sum = 0;
-    for (int i = 0; i < n; i++) {
-      sum += Math.pow(a.get(i) - a2.get(i), 2);
+    for (int i = 0; i < a.getDimension(); i++) {
+      sum += Math.pow(a.get(i) - b.get(i), 2);
     }
-    assertTrue(Math.sqrt(sum / n) < 1e-4); // s and d comparison
+    assertTrue(Math.sqrt(sum / a.getDimension()) < 1e-4); // s and d comparison
   }
 
 }
