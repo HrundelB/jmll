@@ -1,11 +1,13 @@
 package com.spbsu.exp.dl.rbm;
 
+import org.jetbrains.annotations.NotNull;
+import com.spbsu.exp.cuda.data.DataUtils;
 import com.spbsu.exp.cuda.data.FMatrix;
 import gnu.trove.list.array.TIntArrayList;
-import org.jetbrains.annotations.NotNull;
 
-import java.util.Collections;
 import java.util.Random;
+
+import static com.spbsu.exp.cuda.JcublasHelper.*;
 
 /**
  * jmll
@@ -38,15 +40,33 @@ public class RBMLearning {
     final int examplesNumber = X.getColumns();
     final int batchesNumber = examplesNumber / batchSize;
 
+    final float learningRate = alpha / batchSize;
+    final float learningMoment = 1.f + momentum;
     for (int i = 0; i < epochsNumber; i++) {
-      final float error;
+      float error = 0;
       final TIntArrayList examplesIndexes = randomPermutations(examplesNumber);
 
       for (int j = 0; j < batchesNumber; j++) {
-        final FMatrix V0 = X.getColumnsRange(j * batchSize, (j + 1) * batchSize);
+        final FMatrix V0 = X.getColumnsRange(examplesIndexes.subList(j * batchSize, (j + 1) * batchSize));
+        final FMatrix H0 = rbm.batchPositive(V0);
+        final FMatrix V1 = rbm.batchNegative(H0);
+        final FMatrix H1 = rbm.batchPositive(V1);//todo(ksenon): sigm instead of rndsigm
 
-
+        rbm.W = fSum(
+            fScale(rbm.W, learningMoment),
+            fScale(fSubtr(fMult(V0, true, H0, false), fMult(V1, true, H1, false)), learningRate)
+        );
+        rbm.B = fSum(
+            fScale(rbm.B, learningMoment),
+            fScale(fSubtr(V0, V1), learningRate)
+        );
+        rbm.B = fSum(
+            fScale(rbm.B, learningMoment),
+            fScale(fSubtr(H0, H1), learningRate)
+        );
+        error += DataUtils.rmse(V0, V1) / batchSize;
       }
+      System.out.println("Epoch " + i + ", error " + error);
     }
   }
 

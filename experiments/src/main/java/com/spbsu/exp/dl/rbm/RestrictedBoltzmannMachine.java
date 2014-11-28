@@ -1,10 +1,9 @@
 package com.spbsu.exp.dl.rbm;
 
 import org.jetbrains.annotations.NotNull;
+import com.spbsu.exp.cuda.data.DataUtils;
 import com.spbsu.exp.cuda.data.FMatrix;
-import com.spbsu.exp.cuda.data.FVector;
 import com.spbsu.exp.cuda.data.impl.FArrayMatrix;
-import com.spbsu.exp.cuda.data.impl.FArrayVector;
 import com.spbsu.exp.dl.Init;
 
 import java.io.File;
@@ -24,33 +23,36 @@ import static com.spbsu.exp.cuda.JcudaVectorInscale.*;
  */
 public class RestrictedBoltzmannMachine {
 
-  private FMatrix W;
-  private FVector b;
-  private FVector c;
+  public FMatrix W;
+  public FMatrix B;
+  public FMatrix C;
 
-  public RestrictedBoltzmannMachine(final int vuNumber, final int huNumber) {
-    W = new FArrayMatrix(vuNumber, huNumber);
-    b = new FArrayVector(vuNumber);
-    c = new FArrayVector(huNumber);
+  public RestrictedBoltzmannMachine(final int visualDim, final int hiddenDim, final int batchesNumber) {
+    this(
+        new FArrayMatrix(visualDim, hiddenDim),
+        new FArrayMatrix(visualDim, batchesNumber),
+        new FArrayMatrix(hiddenDim, batchesNumber)
+    );
   }
 
   public RestrictedBoltzmannMachine(
       final @NotNull FMatrix W,
-      final @NotNull FVector b,
-      final @NotNull FVector c
+      final @NotNull FMatrix B,
+      final @NotNull FMatrix C
   ) {
     this.W = W;
-    this.b = b;
-    this.c = c;
+    this.B = B;
+    this.C = C;
   }
 
-  public RestrictedBoltzmannMachine(final @NotNull String path2model) {
-    read(path2model);
+  public RestrictedBoltzmannMachine(final @NotNull String path2model, final int batchSize) {
+    read(path2model, batchSize);
   }
 
   public void init(final @NotNull Init init) {
-    final int rows = W.getRows();
-    final int columns = W.getColumns();
+    final int n = W.getRows();
+    final int k = W.getColumns();
+    final int m = C.getRows();
 
     switch (init) {
       case RANDOM_SMALL: {
@@ -58,82 +60,55 @@ public class RestrictedBoltzmannMachine {
         final float scale = 0.2f;
         final float shift = scale / 2.f;
 
-        for (int i = 0; i < rows; i++) {
-          for (int j = 0; j < columns; j++) {
+        for (int i = 0; i < n; i++) {
+          for (int j = 0; j < k; j++) {
             W.set(i, j, random.nextFloat() * scale - shift);
           }
         }
-        for (int i = 0; i < rows; i++) {
-          b.set(i, random.nextFloat() * scale - shift);
+
+        float[] vector = new float[n];
+        for (int i = 0; i < n; i++) {
+          vector[i] = random.nextFloat() * scale - shift;
         }
-        for (int i = 0; i < columns; i++) {
-          c.set(i, random.nextFloat() * scale - shift);
+        B = DataUtils.repeatAsColumns(vector, m);
+
+        vector = new float[k];
+        for (int i = 0; i < k; i++) {
+          vector[i] = random.nextFloat() * scale - shift;
         }
-        break;
-      }
-      case IDENTITY: {
-        for (int i = 0; i < rows; i++) {
-          for (int j = 0; j < columns; j++) {
-            W.set(i, j, 1.f);
-          }
-        }
-        for (int i = 0; i < rows; i++) {
-          b.set(i, 1.f);
-        }
-        for (int i = 0; i < columns; i++) {
-          c.set(i, 1.f);
-        }
+        C = DataUtils.repeatAsColumns(vector, m);
         break;
       }
     }
   }
 
+  /**
+   * I{sigmoid(trans(W)[k x n] * X[n x m] + C[k x m]) < U(0, 1)[k x m]}[k x m]
+   */
   public FMatrix batchPositive(final @NotNull FMatrix X) {
-    fSum(fRepeatAsRow(c, X.getRows()), fMult(X, W));
-    return null;
+    return fRndSigmoid(fSum(fMult(W, true, X, false), C));
   }
 
-  // CD-1
-  public void learn(FVector input, float alpha) {
-    final FVector h = positive(input);
-
-    final FVector vN = negative(h);
-    final FVector hN = positive(vN);
-
-    // W = W + alpha * (v * trans(h) - v' * trans(h'))
-    W = fSum(W, fScale(fSubtr(fMult(input, h), fMult(vN, hN)), alpha));
+  /**
+   * I{sigmoid(W[n x k] * H[k x m] + B[n x m]) < U(0, 1)[n x m]}[n x m]
+   */
+  public FMatrix batchNegative(final @NotNull FMatrix H) {
+    return fRndSigmoid(fSum(fMult(W, H), B));
   }
 
-  public FVector represent(final @NotNull FVector input) {
-    final FVector h = positive(input);
-    return negative(h);
-  }
-
-  private FVector positive(FVector v) {
-    final FVector z = fMult(v, W);
-    FTanh(z);
-    return z;
-  }
-
-  private FVector negative(FVector vP) {
-    final FVector zP = fMult(W, vP);
-    FTanh(zP);
-    return zP;
-  }
-
-  public void read(final @NotNull String path) {
-    try(
+  public void read(final @NotNull String path, final int batchSize) {
+    try (
         final RandomAccessFile raf = new RandomAccessFile(path, "rw");
         final FileChannel fileChannel = raf.getChannel()
     ) {
       final ByteBuffer buffer = fileChannel.map(FileChannel.MapMode.READ_WRITE, 0, 4 * fileChannel.size());
 
-      final int vuNumber = buffer.getInt();
-      final int huNumber = buffer.getInt();
+      final int n = buffer.getInt();
+      final int k = buffer.getInt();
 
-      W = new FArrayMatrix(vuNumber, read(vuNumber * huNumber, buffer));
-      b = new FArrayVector(read(vuNumber, buffer));
-      c = new FArrayVector(read(huNumber, buffer));
+      W = new FArrayMatrix(n, read(n * k, buffer));
+      B = DataUtils.repeatAsColumns(read(n, buffer), batchSize);
+      C = DataUtils.repeatAsColumns(read(k, buffer), batchSize);
     }
     catch (IOException e) {
       throw new RuntimeException(e);
@@ -149,21 +124,21 @@ public class RestrictedBoltzmannMachine {
   }
 
   public void write(final @NotNull String path) {
-    final int vuNumber = W.getRows();
-    final int huNumber = W.getColumns();
-    final long size = 2 + 4 * (vuNumber * huNumber + vuNumber + huNumber);
-    try(
+    final int n = W.getRows();
+    final int k = W.getColumns();
+    final long size = 4 * (2 + n * k + n + k);
+    try (
         final RandomAccessFile raf = new RandomAccessFile(new File(path), "rw");
         final FileChannel fileChannel = raf.getChannel()
     ) {
       final ByteBuffer buffer = fileChannel.map(FileChannel.MapMode.READ_WRITE, 0, size);
 
-      buffer.putInt(vuNumber);
-      buffer.putInt(huNumber);
+      buffer.putInt(n);
+      buffer.putInt(k);
 
       write(W.toArray(), buffer);
-      write(b.toArray(), buffer);
-      write(c.toArray(), buffer);
+      write(B.getColumn(0).toArray(), buffer);
+      write(C.getColumn(0).toArray(), buffer);
     }
     catch (IOException e) {
       throw new RuntimeException(e);

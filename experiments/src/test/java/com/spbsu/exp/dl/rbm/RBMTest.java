@@ -1,6 +1,8 @@
 package com.spbsu.exp.dl.rbm;
 
+import com.spbsu.exp.cuda.data.FMatrix;
 import com.spbsu.exp.cuda.data.FVector;
+import com.spbsu.exp.cuda.data.impl.FArrayMatrix;
 import com.spbsu.exp.cuda.data.impl.FArrayVector;
 import com.spbsu.exp.dl.Init;
 import com.xeiam.xchart.Chart;
@@ -25,32 +27,29 @@ public class RBMTest {
     final float learningRate = 0.1f;
 
     final Random random = new Random();
-    final List<FVector> ds = new ArrayList<>(examples);
+    final FMatrix X = new FArrayMatrix(dim, examples);
     for (int i = 0; i < examples; i++) {
       float[] data = new float[dim];
       for (int j = 0; j < dim; j++) {
         data[j] = (float) Math.sin(random.nextFloat() + j);
       }
-      ds.add(new FArrayVector(data));
+      X.setColumn(i, data);
     }
 
-    final RestrictedBoltzmannMachine rbm = new RestrictedBoltzmannMachine(dim, hiddenUnits);
-    rbm.init(Init.IDENTITY);
+    final RestrictedBoltzmannMachine rbm = new RestrictedBoltzmannMachine(dim, hiddenUnits, examples);
+    rbm.init(Init.RANDOM_SMALL);
 
-    for (int i = 0; i < epochs; i++) {
-      for (int j = 0; j < ds.size(); j++) {
-        rbm.learn(ds.get(j), learningRate);
-      }
-      System.out.println(i);
-    }
+    final RBMLearning rbmLearning = new RBMLearning(rbm, learningRate, 0.f, epochs, examples);
+
+    rbmLearning.learn(X);
 
     final double[] xData = new double[dim];
     final double[][] y = new double[2][dim];
-    final FVector represent = rbm.represent(ds.get(0));
-    for (int i = 0; i < represent.getDimension(); i++) {
+    final FMatrix represent = rbm.batchNegative(rbm.batchPositive(X));
+    for (int i = 0; i < dim; i++) {
       xData[i] = i;
       y[0][i] = Math.sin(i);
-      y[1][i] = represent.get(i);
+      y[1][i] = represent.get(i, 0);
     }
 
     Chart chart = QuickChart.getChart("Sin(x)", "X", "Y", new String[]{"Exp", "Act"}, xData, y);

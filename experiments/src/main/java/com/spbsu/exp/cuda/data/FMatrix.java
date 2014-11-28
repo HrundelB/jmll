@@ -1,6 +1,7 @@
 package com.spbsu.exp.cuda.data;
 
 import org.jetbrains.annotations.NotNull;
+import gnu.trove.list.TIntList;
 
 /**
  * jmll
@@ -13,9 +14,14 @@ public interface FMatrix {
 
   float get(final int i, final int j);
 
+  @NotNull
   FVector getColumn(final int j);
 
+  @NotNull
   FMatrix getColumnsRange(final int begin, final int length);
+
+  @NotNull
+  FMatrix getColumnsRange(final @NotNull TIntList indexes);
 
   void setColumn(final int j, final @NotNull FVector column);
 

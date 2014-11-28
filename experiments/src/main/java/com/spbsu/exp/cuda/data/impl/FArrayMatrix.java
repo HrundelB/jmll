@@ -2,6 +2,7 @@ package com.spbsu.exp.cuda.data.impl;
 
 import com.spbsu.exp.cuda.data.FMatrix;
 import com.spbsu.exp.cuda.data.FVector;
+import gnu.trove.list.TIntList;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -35,6 +36,7 @@ public class FArrayMatrix implements FMatrix {
     return data[i + j * rows];
   }
 
+  @NotNull
   @Override
   public FVector getColumn(final int j) {
     final float[] destination = new float[rows];
@@ -42,10 +44,22 @@ public class FArrayMatrix implements FMatrix {
     return new FArrayVector(destination);
   }
 
+  @NotNull
   @Override
   public FMatrix getColumnsRange(final int begin, final int length) {
     final float[] destination = new float[rows * length];
     System.arraycopy(data, rows * begin, destination, 0, rows * length);
+    return new FArrayMatrix(rows, destination);
+  }
+
+  @NotNull
+  @Override
+  public FMatrix getColumnsRange(final @NotNull TIntList indexes) {
+    final int size = indexes.size();
+    final float[] destination = new float[rows * size];
+    for (int i = 0; i < size; i++) {
+      System.arraycopy(data, rows * indexes.get(i), destination, rows * i, rows);
+    }
     return new FArrayMatrix(rows, destination);
   }
 

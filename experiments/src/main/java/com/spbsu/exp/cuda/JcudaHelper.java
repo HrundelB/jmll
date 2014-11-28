@@ -46,28 +46,24 @@ public class JcudaHelper { //todo(ksenon): from jar (dll to tmp)
   }
 
   public static void rebuildAll() {
-    final String[] cus = new File(KERNELS_DIR).list();
+    final File[] cus = new File(KERNELS_DIR).listFiles();
 
-    for (final String cu : cus) {
+    for (final File cu : cus) {
       buildKernel(cu, cuNameToPtx(cu));
     }
   }
 
-  private static String cuNameToPtx(final String cuFileName) {
-    final int extensionPoint = cuFileName.lastIndexOf('.');
+  private static File cuNameToPtx(final File cuFile) {
+    final String name = cuFile.getName();
+    final int extensionPoint = name.lastIndexOf('.');
     if (extensionPoint == -1) {
-      throw new RuntimeException("Wrong extension of the file: " + cuFileName);
+      throw new RuntimeException("Wrong extension of the file: " + name);
     }
-    return PTX_DIR + cuFileName.substring(0, extensionPoint + 1) + "ptx";
+    return new File(PTX_DIR, name.substring(0, extensionPoint + 1) + "ptx");
   }
 
   public static String buildKernel(final @NotNull String cuFileName) {
-    final String cuFilePath = KERNELS_DIR + cuFileName;
-    final String ptxFilePath = PTX_DIR + cuNameToPtx(cuFilePath);
-
-    buildKernel(cuFilePath, ptxFilePath);
-
-    return ptxFilePath;
+    throw new UnsupportedOperationException();
   }
 
   public static void buildKernel(final @NotNull String cuFilePath, final @NotNull String ptxFilePath) {

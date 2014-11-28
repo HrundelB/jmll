@@ -1,7 +1,6 @@
 package com.spbsu.exp.cuda;
 
 import org.jetbrains.annotations.NotNull;
-import com.spbsu.commons.math.vectors.impl.mx.ColsVecArrayMx;
 import com.spbsu.exp.cuda.data.FMatrix;
 import com.spbsu.exp.cuda.data.FVector;
 import com.spbsu.exp.cuda.data.impl.FArrayMatrix;
@@ -21,46 +20,10 @@ public class JcublasHelper { //todo(ksenon): row-major support
     JcudaHelper.warmUp();
   }
 
-  public static ColsVecArrayMx dMult(final @NotNull ColsVecArrayMx A, final @NotNull ColsVecArrayMx B) {
-    final int m = A.rows();
-    final int k = A.columns();
-    final int n = B.columns();
-    final int mk = m * k;
-    final int kn = k * n;
-    final int mn = m * n;
-
-    final double[] hA = A.toColumnMajor();
-    final double[] hB = B.toColumnMajor();
-    final double[] hC = new double[mn];
-
-    JCublas.cublasInit();
-
-    final Pointer dA = new Pointer();
-    final Pointer dB = new Pointer();
-    final Pointer dC = new Pointer();
-
-    JCublas.cublasAlloc(mk, Sizeof.DOUBLE, dA);
-    JCublas.cublasAlloc(kn, Sizeof.DOUBLE, dB);
-    JCublas.cublasAlloc(mn, Sizeof.DOUBLE, dC);
-
-    JCublas.cublasSetVector(mk, Sizeof.DOUBLE, Pointer.to(hA), 1, dA, 1);
-    JCublas.cublasSetVector(kn, Sizeof.DOUBLE, Pointer.to(hB), 1, dB, 1);
-    JCublas.cublasSetVector(mn, Sizeof.DOUBLE, Pointer.to(hC), 1, dC, 1);
-
-    JCublas.cublasDgemm('n', 'n', m, n, k, 1., dA, m, dB, k, 0., dC, m);
-
-    JCublas.cublasGetVector(mn, Sizeof.DOUBLE, dC, 1, Pointer.to(hC), 1);
-
-    JCublas.cublasFree(dA);
-    JCublas.cublasFree(dB);
-    JCublas.cublasFree(dC);
-
-    JCublas.cublasShutdown();
-
-    return new ColsVecArrayMx(n, hC);
-  }
-
-  public static FMatrix fMult(final @NotNull FMatrix A, final @NotNull FMatrix B) {
+  public static FMatrix fMult(
+      final @NotNull FMatrix A,
+      final @NotNull FMatrix B
+  ) {
     return fMult(A, false, B, false);
   }
 
@@ -70,56 +33,90 @@ public class JcublasHelper { //todo(ksenon): row-major support
       final @NotNull FMatrix B,
       final boolean transB
   ) {
+    final int rowsA = A.getRows();
+    final int columnsA = A.getColumns();
     return new FArrayMatrix(
-        A.getRows(),
-        fMMmult(A.getRows(), A.getColumns(), B.getColumns(), A.toArray(), transA, B.toArray(), transB)
+        transA ? columnsA : rowsA,
+        fMMmult(rowsA, columnsA, B.getRows(), B.getColumns(), 1.f, A.toArray(), transA, B.toArray(), transB, 0.f, null)
     );
   }
 
-  public static float fDot(final @NotNull FVector a, final @NotNull FVector b) {
-    return fDot(b.getDimension(), a.toArray(), b.toArray());
-  }
-
-  public static FVector fMult(final @NotNull FMatrix A, final @NotNull FVector b) {
+  public static FVector fMult(
+      final @NotNull FMatrix A,
+      final @NotNull FVector b
+  ) {
     return new FArrayVector(fMVmult(A.getRows(), A.getColumns(), A.toArray(), false, b.toArray()));
   }
 
-  public static FVector fMult(final @NotNull FVector b, final @NotNull FMatrix A) {
+  public static FVector fMult(
+      final @NotNull FVector b,
+      final @NotNull FMatrix A
+  ) {
     return new FArrayVector(fMVmult(A.getRows(), A.getColumns(), A.toArray(), true, b.toArray()));
   }
 
-  public static FMatrix fMult(final @NotNull FVector a, final @NotNull FVector b) {
+  public static FMatrix fMult(
+      final @NotNull FVector a,
+      final @NotNull FVector b
+  ) {
     return new FArrayMatrix(
         a.getDimension(),
-        fMMmult(a.getDimension(), 1, b.getDimension(), a.toArray(), false, b.toArray(), false)
+        fMMmult(a.getDimension(), 1, b.getDimension(), 1, 1.f, a.toArray(), false, b.toArray(), false, 0.f, null)
     );
   }
 
-  public static FMatrix fSum(final @NotNull FMatrix A, final @NotNull FMatrix B) {
+  public static float fDot(
+      final @NotNull FVector a,
+      final @NotNull FVector b
+  ) {
+    return fDot(b.getDimension(), a.toArray(), b.toArray());
+  }
+
+  public static FMatrix fSum(
+      final @NotNull FMatrix A,
+      final @NotNull FMatrix B
+  ) {
     return new FArrayMatrix(A.getRows(), fVVsum(A.toArray(), B.toArray(), 1.f));
   }
 
-  public static FVector fSum(final @NotNull FVector a, final @NotNull FVector b) {
+  public static FVector fSum(
+      final @NotNull FVector a,
+      final @NotNull FVector b
+  ) {
     return new FArrayVector(fVVsum(a.toArray(), b.toArray(), 1.f));
   }
 
-  public static FMatrix fSubtr(final @NotNull FMatrix A, final @NotNull FMatrix B) {
+  public static FMatrix fSubtr(
+      final @NotNull FMatrix A,
+      final @NotNull FMatrix B
+  ) {
     return new FArrayMatrix(A.getRows(), fVVsum(B.toArray(), A.toArray(), -1.f));
   }
 
-  public static FVector fSubtr(final @NotNull FVector a, final @NotNull FVector b) {
+  public static FVector fSubtr(
+      final @NotNull FVector a,
+      final @NotNull FVector b
+  ) {
     return new FArrayVector(fVVsum(a.toArray(), b.toArray(), -1.f));
   }
 
-  public static FMatrix fScale(final @NotNull FMatrix A, final float alpha) {
+  public static FMatrix fScale(
+      final @NotNull FMatrix A,
+      final float alpha
+  ) {
     fVscale(A.toArray(), alpha);
     return A;
   }
 
-  public static FVector fScale(final @NotNull FVector a, final float alpha) {
+  public static FVector fScale(
+      final @NotNull FVector a,
+      final float alpha
+  ) {
     fVscale(a.toArray(), alpha);
     return a;
   }
+
+  //--------------------------------------------------------------------------------------------------------------------
 
   private static float fDot(final int n, final float[] ha, final float[] hb) {
     JCublas.cublasInit();
@@ -222,20 +219,33 @@ public class JcublasHelper { //todo(ksenon): row-major support
     return hc;
   }
 
+  @SuppressWarnings("UnnecessaryLocalVariable")
   private static float[] fMMmult(
-      final int m,
-      final int k,
-      final int n,
+      final int rowsA,
+      final int columnsA,
+      final int rowsB,
+      final int columnsB,
+      final float alpha,
       final float[] hA,
-      final boolean tA,
+      final boolean transA,
       final float[] hB,
-      final boolean tB
+      final boolean tranB,
+      final float beta,
+      float[] hC
   ) {
-    final int mk = m * k;
-    final int kn = k * n;
-    final int mn = m * n;
+    final char opA = transA ? 'T' : 'N';
+    final char opB = tranB ? 'T' : 'N';
+    final int m = transA ? columnsA : rowsA;
+    final int n = tranB ? rowsB : columnsB;
+    final int k = transA ? rowsA : columnsA;
+    final int lda = rowsA;
+    final int ldb = rowsB;
+    final int ldc = transA ? columnsA : rowsA;
+    final int lengthA = hA.length;
+    final int lengthB = hB.length;
+    final int lengthC = m * n;
 
-    final float[] hC = new float[mn];
+    hC = hC == null ? new float[lengthC] : hC;
 
     JCublas.cublasInit();
 
@@ -243,17 +253,17 @@ public class JcublasHelper { //todo(ksenon): row-major support
     final Pointer dB = new Pointer();
     final Pointer dC = new Pointer();
 
-    JCublas.cublasAlloc(mk, Sizeof.FLOAT, dA);
-    JCublas.cublasAlloc(kn, Sizeof.FLOAT, dB);
-    JCublas.cublasAlloc(mn, Sizeof.FLOAT, dC);
+    JCublas.cublasAlloc(lengthA, Sizeof.FLOAT, dA);
+    JCublas.cublasAlloc(lengthB, Sizeof.FLOAT, dB);
+    JCublas.cublasAlloc(lengthC, Sizeof.FLOAT, dC);
 
-    JCublas.cublasSetVector(mk, Sizeof.FLOAT, Pointer.to(hA), 1, dA, 1);
-    JCublas.cublasSetVector(kn, Sizeof.FLOAT, Pointer.to(hB), 1, dB, 1);
-    JCublas.cublasSetVector(mn, Sizeof.FLOAT, Pointer.to(hC), 1, dC, 1);
+    JCublas.cublasSetVector(lengthA, Sizeof.FLOAT, Pointer.to(hA), 1, dA, 1);
+    JCublas.cublasSetVector(lengthB, Sizeof.FLOAT, Pointer.to(hB), 1, dB, 1);
+    JCublas.cublasSetVector(lengthC, Sizeof.FLOAT, Pointer.to(hC), 1, dC, 1);
 
-    JCublas.cublasSgemm(tA ? 't' : 'n', tB ? 't' : 'n', m, n, k, 1.f, dA, m, dB, k, 0.f, dC, m);
+    JCublas.cublasSgemm(opA, opB, m, n, k, alpha, dA, lda, dB, ldb, beta, dC, ldc);
 
-    JCublas.cublasGetVector(mn, Sizeof.FLOAT, dC, 1, Pointer.to(hC), 1);
+    JCublas.cublasGetVector(lengthC, Sizeof.FLOAT, dC, 1, Pointer.to(hC), 1);
 
     JCublas.cublasFree(dA);
     JCublas.cublasFree(dB);
@@ -262,12 +272,6 @@ public class JcublasHelper { //todo(ksenon): row-major support
     JCublas.cublasShutdown();
 
     return hC;
-  }
-
-  private static void swap(int a, int b) {
-    a = a - b;
-    b = a + b;
-    a = b - a;
   }
 
 }

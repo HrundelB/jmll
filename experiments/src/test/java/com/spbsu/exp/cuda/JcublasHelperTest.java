@@ -20,59 +20,67 @@ import java.util.Random;
  */
 public class JcublasHelperTest extends Assert {
 
-  private final int M = 100;
-  private final int N = 200;
-  private final int K = 300;
+  private final int M = 200;
+  private final int K = 400;
+  private final int N = 300;
 
   private final double epsilon = 1e-6;
+  private final double epsilon2 = 1e-4;
 
   @Test
-  public void testDMult() throws Exception {
-    final ColsVecArrayMx A = getMx(M, N);
-    final ColsVecArrayMx B = getMx(N, K);
-
-    final Mx expected = MxTools.multiply(A, B);
-    final ColsVecArrayMx actual = JcublasHelper.dMult(A, B);
-
-    assertTrue(compare(expected, actual) < epsilon);
-  }
-
-  @Test
-  public void testFMult() throws Exception {
-    final int m = 100;
-    final int k = 200;
-    final int n = 300;
-    final FMatrix A = new FArrayMatrix(m, k);
-    final ColsVecArrayMx A2 = new ColsVecArrayMx(m, k);
-    final FMatrix B = new FArrayMatrix(k, n);
-    final ColsVecArrayMx B2 = new ColsVecArrayMx(k, n);
-
-    final Random random = new Random();
-    for (int i = 0; i < m; i++) {
-      for (int j = 0; j < k; j++) {
-        final float value = random.nextFloat();
-        A.set(i, j, value);
-        A2.set(i, j, value);
-      }
-    }
-    for (int i = 0; i < k; i++) {
-      for (int j = 0; j < n; j++) {
-        final float value = random.nextFloat();
-        B.set(i, j, value);
-        B2.set(i, j, value);
-      }
-    }
+  public void testFMultAB() throws Exception {  // A[M x K] * B[K x N]
+    final FMatrix A = getMatrix(M, K);
+    final FMatrix B = getMatrix(K, N);
+    final ColsVecArrayMx A2 = new ColsVecArrayMx(K, copy(A.toArray()));
+    final ColsVecArrayMx B2 = new ColsVecArrayMx(N, copy(B.toArray()));
 
     final Mx C2 = MxTools.multiply(A2, B2);
     final FMatrix C = JcublasHelper.fMult(A, B);
 
-    double sum = 0;
-    for (int i = 0; i < C.getRows(); i++) {
-      for (int j = 0; j < C.getColumns(); j++) {
-        sum += Math.pow(C.get(i, j) - C2.get(i, j), 2);
-      }
-    }
-    assertTrue(Math.sqrt(sum / C.toArray().length) < 1e-4); // s and d comparison
+    assertTrue(compare(C2, C) < epsilon2);
+
+    final FMatrix D = JcublasHelper.fMult(A, false, B, false);
+
+    assertTrue(compare(C2, D) < epsilon2);
+  }
+
+  @Test
+  public void testFMultATB() throws Exception {  // A[K x M] * B[K x N]
+    final FMatrix A = getMatrix(K, M);
+    final FMatrix B = getMatrix(K, N);
+    final ColsVecArrayMx A2 = new ColsVecArrayMx(M, copy(A.toArray()));
+    final ColsVecArrayMx B2 = new ColsVecArrayMx(N, copy(B.toArray()));
+
+    final Mx C2 = MxTools.multiply(MxTools.transpose(A2), B2);
+    final FMatrix C = JcublasHelper.fMult(A, true, B, false);
+
+    assertTrue(compare(C2, C) < epsilon2);
+  }
+
+  @Test
+  public void testFMultABT() throws Exception {  // A[M x K] * B[N x K]
+    final FMatrix A = getMatrix(M, K);
+    final FMatrix B = getMatrix(N, K);
+    final ColsVecArrayMx A2 = new ColsVecArrayMx(K, copy(A.toArray()));
+    final ColsVecArrayMx B2 = new ColsVecArrayMx(K, copy(B.toArray()));
+
+    final Mx C2 = MxTools.multiply(A2, MxTools.transpose(B2));
+    final FMatrix C = JcublasHelper.fMult(A, false, B, true);
+
+    assertTrue(compare(C2, C) < epsilon2);
+  }
+
+  @Test
+  public void testFMultATBT() throws Exception {  // A[K x M] * B[N x K]
+    final FMatrix A = getMatrix(K, M);
+    final FMatrix B = getMatrix(N, K);
+    final ColsVecArrayMx A2 = new ColsVecArrayMx(M, copy(A.toArray()));
+    final ColsVecArrayMx B2 = new ColsVecArrayMx(K, copy(B.toArray()));
+
+    final Mx C2 = MxTools.multiply(MxTools.transpose(A2), MxTools.transpose(B2));
+    final FMatrix C = JcublasHelper.fMult(A, true, B, true);
+
+    assertTrue(compare(C2, C) < epsilon2);
   }
 
   @Test
@@ -304,30 +312,48 @@ public class JcublasHelperTest extends Assert {
 
   // -------------------------------------------------------------------------------------------------------------------
 
-  private ColsVecArrayMx getMx(final int m, final int n) {
-    final ColsVecArrayMx mx = new ColsVecArrayMx(m, n);
+  private double[] copy(final float[] array) {
+    final double[] copy = new double[array.length];
+    for (int i = 0; i < array.length; i++) {
+      copy[i] = array[i];
+    }
+    return copy;
+  }
+
+  private FMatrix getMatrix(final int m, final int n) {
+    final FMatrix mx = new FArrayMatrix(m, n);
 
     final Random random = new Random();
     for (int i = 0; i < m; i++) {
       for (int j = 0; j < n; j++) {
-        mx.set(i, j, random.nextDouble());
+        mx.set(i, j, random.nextFloat());
       }
     }
     return mx;
   }
 
-  private double compare(final Mx expected, final Mx actual) {
-    if (expected.rows() != actual.rows() || expected.columns() != actual.columns()) {
-      return Double.POSITIVE_INFINITY;
+  private float compare(final Mx expected, final FMatrix actual) {
+    if (expected.rows() != actual.getRows() || expected.columns() != actual.getColumns()) {
+      return Float.POSITIVE_INFINITY;
     }
 
-    double error = 0;
+    float error = 0;
     for (int i = 0; i < expected.rows(); i++) {
       for (int j = 0; j < expected.columns(); j++) {
-        error += Math.pow(expected.get(i, j) - actual.get(i, j), 2);
+        error += (float)Math.pow(expected.get(i, j) - actual.get(i, j), 2);
       }
     }
-    return Math.sqrt(error / (expected.rows() * expected.columns()));
+    return (float)Math.sqrt(error / (expected.rows() * expected.columns()));
+  }
+
+  private void show(final FMatrix A) {
+    for (int i = 0; i < A.getRows(); i++) {
+      for (int j = 0; j < A.getColumns(); j++) {
+        System.out.printf(A.get(i, j) + "\t");
+      }
+      System.out.println();
+    }
+    System.out.println();
   }
 
 }
