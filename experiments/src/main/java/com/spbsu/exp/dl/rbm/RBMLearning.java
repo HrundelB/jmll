@@ -54,17 +54,18 @@ public class RBMLearning {
 
         rbm.W = fSum(
             fScale(rbm.W, learningMoment),
-            fScale(fSubtr(fMult(V0, true, H0, false), fMult(V1, true, H1, false)), learningRate)
+            fScale(fSubtr(fMult(V0, false, H0, true), fMult(V1, false, H1, true)), learningRate)
         );
         rbm.B = fSum(
             fScale(rbm.B, learningMoment),
             fScale(fSubtr(V0, V1), learningRate)
         );
-        rbm.B = fSum(
-            fScale(rbm.B, learningMoment),
+        rbm.C = fSum(
+            fScale(rbm.C, learningMoment),
             fScale(fSubtr(H0, H1), learningRate)
         );
         error += DataUtils.rmse(V0, V1) / batchSize;
+        System.out.println("Batch " + j + ", error " + error);
       }
       System.out.println("Epoch " + i + ", error " + error);
     }

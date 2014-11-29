@@ -27,29 +27,40 @@ public class RestrictedBoltzmannMachine {
   public FMatrix B;
   public FMatrix C;
 
-  public RestrictedBoltzmannMachine(final int visualDim, final int hiddenDim, final int batchesNumber) {
+  public RestrictedBoltzmannMachine(
+      final int visualDim,
+      final int hiddenDim,
+      final int batchesNumber,
+      final @NotNull Init initMethod
+  ) {
     this(
         new FArrayMatrix(visualDim, hiddenDim),
         new FArrayMatrix(visualDim, batchesNumber),
-        new FArrayMatrix(hiddenDim, batchesNumber)
+        new FArrayMatrix(hiddenDim, batchesNumber),
+        initMethod
     );
   }
 
   public RestrictedBoltzmannMachine(
       final @NotNull FMatrix W,
       final @NotNull FMatrix B,
-      final @NotNull FMatrix C
+      final @NotNull FMatrix C,
+      final @NotNull Init initMethod
   ) {
     this.W = W;
     this.B = B;
     this.C = C;
+    init(initMethod);
   }
 
-  public RestrictedBoltzmannMachine(final @NotNull String path2model, final int batchSize) {
+  public RestrictedBoltzmannMachine(
+      final @NotNull String path2model,
+      final int batchSize
+  ) {
     read(path2model, batchSize);
   }
 
-  public void init(final @NotNull Init init) {
+  private void init(final Init init) {
     final int n = W.getRows();
     final int k = W.getColumns();
     final int m = C.getRows();
@@ -79,21 +90,31 @@ public class RestrictedBoltzmannMachine {
         C = DataUtils.repeatAsColumns(vector, m);
         break;
       }
+      case DO_NOTHING : {
+        break;
+      }
     }
   }
 
   /**
-   * I{sigmoid(trans(W)[k x n] * X[n x m] + C[k x m]) < U(0, 1)[k x m]}[k x m]
+   *  I{sigmoid(trans(W)[k x n] * X[n x m] + C[k x m]) < U(0, 1)[k x m]}[k x m]
    */
   public FMatrix batchPositive(final @NotNull FMatrix X) {
     return fRndSigmoid(fSum(fMult(W, true, X, false), C));
   }
 
   /**
-   * I{sigmoid(W[n x k] * H[k x m] + B[n x m]) < U(0, 1)[n x m]}[n x m]
+   *  I{sigmoid(W[n x k] * H[k x m] + B[n x m]) < U(0, 1)[n x m]}[n x m]
    */
   public FMatrix batchNegative(final @NotNull FMatrix H) {
     return fRndSigmoid(fSum(fMult(W, H), B));
+  }
+
+  /**
+   *  sigmoid(trans(W)[k x n] * X[n x m] + C[k x m])[k x m]}
+   * */
+  public FMatrix batchForward(final @NotNull FMatrix X) {
+    return fSigmoid(fSum(fMult(W, true, X, false), C));
   }
 
   public void read(final @NotNull String path, final int batchSize) {

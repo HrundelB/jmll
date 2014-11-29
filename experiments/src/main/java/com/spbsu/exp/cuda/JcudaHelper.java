@@ -1,12 +1,12 @@
 package com.spbsu.exp.cuda;
 
+import org.jetbrains.annotations.NotNull;
 import com.spbsu.commons.system.RuntimeUtils;
 import jcuda.Pointer;
 import jcuda.Sizeof;
 import jcuda.driver.CUcontext;
 import jcuda.driver.CUdevice;
 import jcuda.driver.CUdeviceptr;
-import org.jetbrains.annotations.NotNull;
 
 import java.io.*;
 import java.lang.reflect.Field;

@@ -140,7 +140,7 @@ public class JcublasHelper { //todo(ksenon): row-major support
     return hc;
   }
 
-  private static float[] fVVsum(final float[] ha, final float[] hb, final float alpha) {
+  private static float[] fVVsum(final float[] ha, final float[] hb, final float alpha) { //todo(ksenon): segfault 220
     final int n = ha.length;
     final float[] hc = new float[n];
 

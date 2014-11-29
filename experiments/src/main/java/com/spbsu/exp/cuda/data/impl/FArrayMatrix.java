@@ -86,4 +86,18 @@ public class FArrayMatrix implements FMatrix {
     return data.length / rows;
   }
 
+  @Override
+  public String toString() {
+    final StringBuilder builder = new StringBuilder();
+
+    final int columns = getColumns();
+    for (int i = 0; i < rows; i++) {
+      for (int j = 0; j < columns; j++) {
+        builder.append(get(i, j)).append(' ');
+      }
+      builder.append('\n');
+    }
+    return builder.toString();
+  }
+
 }

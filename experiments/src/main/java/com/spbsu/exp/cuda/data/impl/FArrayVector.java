@@ -40,4 +40,13 @@ public class FArrayVector implements FVector {
     return data.length;
   }
 
+  @Override
+  public String toString() {
+    final StringBuilder builder = new StringBuilder();
+    for (int i = 0; i < data.length; i++) {
+      builder.append(data[i]).append(' ');
+    }
+    return builder.append('\n').toString();
+  }
+
 }

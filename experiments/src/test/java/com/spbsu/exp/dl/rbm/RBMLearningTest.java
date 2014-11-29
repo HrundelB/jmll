@@ -1,12 +1,13 @@
 package com.spbsu.exp.dl.rbm;
 
+import com.spbsu.exp.dl.Init;
+import gnu.trove.list.array.TByteArrayList;
+import org.junit.Test;
 import com.spbsu.exp.cuda.data.FMatrix;
 import com.spbsu.exp.cuda.data.FVector;
 import com.spbsu.exp.cuda.data.impl.FArrayMatrix;
 import com.spbsu.exp.cuda.data.impl.FArrayVector;
-import com.spbsu.exp.dl.Init;
 import org.junit.Assert;
-import org.junit.Test;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
@@ -33,7 +34,7 @@ public class RBMLearningTest extends Assert {
   @Test
   public void testLearn() throws Exception {
     final int dDim = 28 * 28;
-    final int examples = 1000;
+    final int examples = 60000;
 
     // LOAD DS
     long begin = System.currentTimeMillis();
@@ -41,10 +42,11 @@ public class RBMLearningTest extends Assert {
     final File learnLabels = new File(path, ly);
     final File test = new File(path, tx);
     final File testLabels = new File(path, ty);
+
     final FMatrix lX = new FArrayMatrix(784, examples);
-    final List<FVector> ly = new ArrayList<>(60000);
-    final List<FVector> tx = new ArrayList<>(10000);
-    final List<FVector> ty = new ArrayList<>(10000);
+    final TByteArrayList ly = new TByteArrayList(60000);
+    final FMatrix tX = new FArrayMatrix(784, 10000);
+    final TByteArrayList ty = new TByteArrayList(10000);
     try (
         RandomAccessFile raf = new RandomAccessFile(learn, "rw");
         RandomAccessFile raf1 = new RandomAccessFile(learnLabels, "rw");
@@ -57,8 +59,6 @@ public class RBMLearningTest extends Assert {
     ) {
       final MappedByteBuffer bufferLX = fcLearnX.map(FileChannel.MapMode.READ_WRITE, 0, learn.length());
       final MappedByteBuffer bufferLY = fcLearnY.map(FileChannel.MapMode.READ_WRITE, 0, learnLabels.length());
-      final MappedByteBuffer bufferTX = fcTestX.map(FileChannel.MapMode.READ_WRITE, 0, test.length());
-      final MappedByteBuffer bufferTY = fcTestY.map(FileChannel.MapMode.READ_WRITE, 0, testLabels.length());
 
       int magic = bufferLX.getInt();
       int examplesNumber = bufferLX.getInt();
@@ -70,23 +70,23 @@ public class RBMLearningTest extends Assert {
       assertEquals(28, rows);
       assertEquals(28, columns);
 
-      for (int i = 0; i < examples; i++) {
-        final float[] image = new float[dDim];
-        for (int j = 0; j < dDim; j++) {
-          image[j] = bufferLX.get() != 0 ? 1.f : 0.f;
-        }
-        lX.setColumn(i, image);
-      }
-
       magic = bufferLY.getInt();
       examplesNumber = bufferLY.getInt();
 
       assertEquals(2049, magic);
       assertEquals(60000, examplesNumber);
 
-      for (int i = 0; i < examplesNumber; i++) {
-        ly.add(toVector(bufferLY.get()));
+      for (int i = 0; i < examples; i++) {
+        final float[] image = new float[dDim];
+        for (int j = 0; j < dDim; j++) {
+          image[j] = bufferLX.get() != 0 ? 1.f : 0.f;
+        }
+        lX.setColumn(i, image);
+        ly.add(bufferLY.get());
       }
+
+      final MappedByteBuffer bufferTX = fcTestX.map(FileChannel.MapMode.READ_WRITE, 0, test.length());
+      final MappedByteBuffer bufferTY = fcTestY.map(FileChannel.MapMode.READ_WRITE, 0, testLabels.length());
 
       magic = bufferTX.getInt();
       examplesNumber = bufferTX.getInt();
@@ -98,14 +98,6 @@ public class RBMLearningTest extends Assert {
       assertEquals(28, rows);
       assertEquals(28, columns);
 
-      for (int i = 0; i < examplesNumber; i++) {
-        final float[] image = new float[dDim];
-        for (int j = 0; j < dDim; j++) {
-          image[j] = bufferTX.get() != 0 ? 1.f : 0.f;
-        }
-        tx.add(new FArrayVector(image));
-      }
-
       magic = bufferTY.getInt();
       examplesNumber = bufferTY.getInt();
 
@@ -113,7 +105,12 @@ public class RBMLearningTest extends Assert {
       assertEquals(10000, examplesNumber);
 
       for (int i = 0; i < examplesNumber; i++) {
-        ty.add(toVector(bufferTY.get()));
+        final float[] image = new float[dDim];
+        for (int j = 0; j < dDim; j++) {
+          image[j] = bufferTX.get() != 0 ? 1.f : 0.f;
+        }
+        tX.setColumn(i, image);
+        ty.add(bufferTY.get());
       }
     }
     catch (IOException e) {
@@ -123,25 +120,151 @@ public class RBMLearningTest extends Assert {
 
     //LEARN
     begin = System.currentTimeMillis();
-    final RestrictedBoltzmannMachine rbm = new RestrictedBoltzmannMachine(784, 1000, 20);
-    rbm.init(Init.RANDOM_SMALL);
-    final RBMLearning learning = new RBMLearning(rbm, 0.1f, 0.f, 15, 20);
+    final RestrictedBoltzmannMachine rbm = new RestrictedBoltzmannMachine(784, 500, 1000, Init.DO_NOTHING);
+    final RBMLearning learning = new RBMLearning(rbm, 0.1f, 0.f, 15, 1000);
 
     learning.learn(lX);
     System.out.println("Trained. " + (System.currentTimeMillis() - begin));
 
+    //REPRESENT
+    try (
+        final FileWriter libfmTrain = new FileWriter("experiments/src/test/data/dl/mnist-train-rbm.libfm");
+        final FileWriter libfmTest = new FileWriter("experiments/src/test/data/dl/mnist-test-rbm.libfm")
+    ) {
+      final FMatrix libfmInputTrain = rbm.batchPositive(lX);
+      for (int i = 0; i < libfmInputTrain.getColumns(); i++) {
+        libfmTrain.write(ly.get(i) + " ");
+
+        final FVector input = libfmInputTrain.getColumn(i);
+        for (int j = 0; j < input.getDimension(); j++) {
+          if (input.get(j) != 0) {
+            libfmTrain.write(j + ":" + 1 + " ");
+
+          }
+        }
+        libfmTrain.write('\n');
+      }
+
+      final FMatrix libfmInputTest = rbm.batchPositive(tX);
+      for (int i = 0; i < libfmInputTest.getColumns(); i++) {
+        libfmTest.write(ty.get(i) + " ");
+
+        final FVector input = libfmInputTest.getColumn(i);
+        for (int j = 0; j < input.getDimension(); j++) {
+          if (input.get(j) != 0) {
+            libfmTest.write(j + ":" + 1 + " ");
+
+          }
+        }
+        libfmTest.write('\n');
+      }
+    }
+    catch (IOException e) {
+      throw new RuntimeException(e);
+    }
     rbm.write("experiments/src/test/data/dl/rbm/rbm.data");
   }
 
-  private void wi(FVector image, String path) throws IOException {
+  @Test
+  public void testName() throws Exception {
+    final int dDim = 28 * 28;
+
+    final File learn = new File(path, lx);
+    final File learnLabels = new File(path, ly);
+    final File test = new File(path, tx);
+    final File testLabels = new File(path, ty);
+    try (
+        final RandomAccessFile raf = new RandomAccessFile(learn, "rw");
+        final RandomAccessFile raf1 = new RandomAccessFile(learnLabels, "rw");
+        final RandomAccessFile raf2 = new RandomAccessFile(test, "rw");
+        final RandomAccessFile raf3 = new RandomAccessFile(testLabels, "rw");
+        final FileChannel fcLearnX = raf.getChannel();
+        final FileChannel fcLearnY = raf1.getChannel();
+        final FileChannel fcTestX = raf2.getChannel();
+        final FileChannel fcTestY = raf3.getChannel();
+        final FileWriter libfmTrain = new FileWriter("experiments/src/test/data/dl/mnist-train.libfm");
+        final FileWriter libfmTest = new FileWriter("experiments/src/test/data/dl/mnist-test.libfm")
+    ) {
+      final MappedByteBuffer bufferLX = fcLearnX.map(FileChannel.MapMode.READ_WRITE, 0, learn.length());
+      final MappedByteBuffer bufferLY = fcLearnY.map(FileChannel.MapMode.READ_WRITE, 0, learnLabels.length());
+
+      int magic = bufferLX.getInt();
+      int examplesNumber = bufferLX.getInt();
+      int rows = bufferLX.getInt();
+      int columns = bufferLX.getInt();
+
+      assertEquals(2051, magic);
+      assertEquals(60000, examplesNumber);
+      assertEquals(28, rows);
+      assertEquals(28, columns);
+
+      magic = bufferLY.getInt();
+      examplesNumber = bufferLY.getInt();
+
+      assertEquals(2049, magic);
+      assertEquals(60000, examplesNumber);
+
+      for (int i = 0; i < examplesNumber; i++) {
+        libfmTrain.write(bufferLY.get() + " ");
+
+        for (int j = 0; j < dDim; j++) {
+          int value;
+          if ((value = bufferLX.get()) != 0) {
+            libfmTrain.write(j + ":" + 1 + " ");
+          }
+        }
+        libfmTrain.write('\n');
+      }
+
+      final MappedByteBuffer bufferTX = fcTestX.map(FileChannel.MapMode.READ_WRITE, 0, test.length());
+      final MappedByteBuffer bufferTY = fcTestY.map(FileChannel.MapMode.READ_WRITE, 0, testLabels.length());
+
+      magic = bufferTX.getInt();
+      examplesNumber = bufferTX.getInt();
+      rows = bufferTX.getInt();
+      columns = bufferTX.getInt();
+
+      assertEquals(2051, magic);
+      assertEquals(10000, examplesNumber);
+      assertEquals(28, rows);
+      assertEquals(28, columns);
+
+      magic = bufferTY.getInt();
+      examplesNumber = bufferTY.getInt();
+
+      assertEquals(2049, magic);
+      assertEquals(10000, examplesNumber);
+
+      for (int i = 0; i < examplesNumber; i++) {
+        libfmTest.write(bufferTY.get() + " ");
+
+        for (int j = 0; j < dDim; j++) {
+          int value;
+          if ((value = bufferTX.get()) != 0) {
+            libfmTest.write(j + ":" + 1 + " ");
+          }
+        }
+        libfmTest.write('\n');
+      }
+    }
+    catch (IOException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  private void wi(FVector image, String path) {
     final float[] img = image.toArray();
-    BufferedImage bImageFromConvert = new BufferedImage(28, 28, BufferedImage.TYPE_BYTE_GRAY);
+    BufferedImage bImageFromConvert = new BufferedImage(28, 28, BufferedImage.TYPE_USHORT_GRAY);
     final WritableRaster raster = bImageFromConvert.getRaster();
     for (int i = 0; i < img.length; i++) {
       raster.setSample(i % 28, i / 28, 0, img[i]);
     }
 
-    ImageIO.write(bImageFromConvert, "png", new File(path));
+    try {
+      ImageIO.write(bImageFromConvert, "png", new File(path));
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
   }
 
   private FVector toVector(final byte index) {
