@@ -1,9 +1,9 @@
 package com.spbsu.exp.cuda.data.impl;
 
+import org.jetbrains.annotations.NotNull;
 import com.spbsu.exp.cuda.data.FMatrix;
 import com.spbsu.exp.cuda.data.FVector;
 import gnu.trove.list.TIntList;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * jmll
@@ -71,6 +71,16 @@ public class FArrayMatrix implements FMatrix {
   @Override
   public void setColumn(int j, float[] column) {
     System.arraycopy(column, 0, data, rows * j, rows);
+  }
+
+  @Override
+  public void setPieceOfColumn(final int j, final int begin, final @NotNull FVector piece) {
+    setPieceOfColumn(j, begin, piece.getDimension(), piece);
+  }
+
+  @Override
+  public void setPieceOfColumn(final int j, final int begin, final int length, final @NotNull FVector piece) {
+    System.arraycopy(piece.toArray(), 0, data, rows * j, length);
   }
 
   @Override

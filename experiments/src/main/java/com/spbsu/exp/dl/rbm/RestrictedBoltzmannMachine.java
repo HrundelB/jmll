@@ -33,24 +33,20 @@ public class RestrictedBoltzmannMachine {
       final int batchesNumber,
       final @NotNull Init initMethod
   ) {
-    this(
-        new FArrayMatrix(visualDim, hiddenDim),
-        new FArrayMatrix(visualDim, batchesNumber),
-        new FArrayMatrix(hiddenDim, batchesNumber),
-        initMethod
-    );
+    W = new FArrayMatrix(visualDim, hiddenDim);
+    B = new FArrayMatrix(visualDim, batchesNumber);
+    C = new FArrayMatrix(hiddenDim, batchesNumber);
+    init(initMethod);
   }
 
   public RestrictedBoltzmannMachine(
       final @NotNull FMatrix W,
       final @NotNull FMatrix B,
-      final @NotNull FMatrix C,
-      final @NotNull Init initMethod
+      final @NotNull FMatrix C
   ) {
     this.W = W;
     this.B = B;
     this.C = C;
-    init(initMethod);
   }
 
   public RestrictedBoltzmannMachine(

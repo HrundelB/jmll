@@ -105,4 +105,16 @@ public class FArrayMatrixTest extends Assert {
     assertTrue(7 == B.get(2, 0));  assertTrue(8 == B.get(2, 1));
   }
 
+  @Test
+  public void testSetPieceOfColumn() throws Exception {
+    final FMatrix A = new FArrayMatrix(3, new float[]{
+        1, 2, 3, 1, 2, 3, 1, 2, 3
+    });
+
+    A.setPieceOfColumn(0, 0, new FArrayVector(new float[]{3, 2}));
+    A.setPieceOfColumn(1, 0, new FArrayVector(new float[]{3, 2}));
+    A.setPieceOfColumn(2, 0, new FArrayVector(new float[]{3, 2}));
+
+    System.out.println(A);
+  }
 }

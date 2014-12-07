@@ -1,6 +1,8 @@
 package com.spbsu.exp.cuda.data.impl;
 
 import com.spbsu.exp.cuda.data.FVector;
+import gnu.trove.list.TIntList;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * jmll
@@ -28,6 +30,17 @@ public class FArrayVector implements FVector {
   public FVector set(int index, float value) {
     data[index] = value;
     return this;
+  }
+
+  @NotNull
+  @Override
+  public FVector getRange(final @NotNull TIntList indexes) {
+    final int size = indexes.size();
+    final float[] subVector = new float[size];
+    for (int i = 0; i < size; i++) {
+      subVector[i] = data[indexes.get(i)];
+    }
+    return new FArrayVector(subVector);
   }
 
   @Override

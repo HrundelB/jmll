@@ -26,14 +26,13 @@ public class RBMLearning {
       final @NotNull RestrictedBoltzmannMachine rbm,
       final float alpha,
       final float momentum,
-      final int epochsNumber,
-      final int batchSize
+      final int epochsNumber
   ) {
     this.rbm = rbm;
     this.alpha = alpha;
     this.momentum = momentum;
     this.epochsNumber = epochsNumber;
-    this.batchSize = batchSize;
+    this.batchSize = rbm.B.getColumns();
   }
 
   public void learn(final @NotNull FMatrix X) {
@@ -44,7 +43,7 @@ public class RBMLearning {
     final float learningMoment = 1.f + momentum;
     for (int i = 0; i < epochsNumber; i++) {
       float error = 0;
-      final TIntArrayList examplesIndexes = randomPermutations(examplesNumber);
+      final TIntArrayList examplesIndexes = DataUtils.randomPermutations(examplesNumber);
 
       for (int j = 0; j < batchesNumber; j++) {
         final FMatrix V0 = X.getColumnsRange(examplesIndexes.subList(j * batchSize, (j + 1) * batchSize));
@@ -65,22 +64,9 @@ public class RBMLearning {
             fScale(fSubtr(H0, H1), learningRate)
         );
         error += DataUtils.rmse(V0, V1) / batchSize;
-        System.out.println("Batch " + j + ", error " + error);
       }
       System.out.println("Epoch " + i + ", error " + error);
     }
-  }
-
-  private TIntArrayList randomPermutations(final int size) {
-    final Random random = new Random();
-    final TIntArrayList list = new TIntArrayList(size);
-
-    for (int i = 0; i < size; i++) {
-      list.add(i);
-    }
-    list.shuffle(random);
-
-    return list;
   }
 
 }

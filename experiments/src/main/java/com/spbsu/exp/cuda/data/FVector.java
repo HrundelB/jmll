@@ -1,5 +1,8 @@
 package com.spbsu.exp.cuda.data;
 
+import gnu.trove.list.TIntList;
+import org.jetbrains.annotations.NotNull;
+
 /**
  * jmll
  * ksen
@@ -10,6 +13,9 @@ public interface FVector {
   float get(final int index);
 
   FVector set(final int index, final float value);
+
+  @NotNull
+  FVector getRange(final @NotNull TIntList indexes);
 
   float[] toArray();
 

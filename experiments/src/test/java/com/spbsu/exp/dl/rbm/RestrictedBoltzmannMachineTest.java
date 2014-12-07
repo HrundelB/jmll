@@ -24,8 +24,7 @@ public class RestrictedBoltzmannMachineTest extends Assert {
     final RestrictedBoltzmannMachine rbm = new RestrictedBoltzmannMachine(
         W,
         B,
-        C,
-        Init.DO_NOTHING
+        C
     );
 
     final String tmpDir = RuntimeUtils.getSysTmpDir();

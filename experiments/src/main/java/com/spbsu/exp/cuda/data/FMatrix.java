@@ -27,6 +27,10 @@ public interface FMatrix {
 
   void setColumn(final int j, final float[] column);
 
+  void setPieceOfColumn(final int j, final int begin, final @NotNull FVector piece);
+
+  void setPieceOfColumn(final int j, final int begin, final int length, final @NotNull FVector piece);
+
   // Column representation
   float[] toArray();
 

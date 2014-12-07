@@ -2,6 +2,7 @@ package com.spbsu.exp.cuda;
 
 import com.spbsu.exp.cuda.data.FMatrix;
 import com.spbsu.exp.cuda.data.FVector;
+import com.spbsu.exp.cuda.data.impl.FArrayMatrix;
 import com.spbsu.exp.cuda.data.impl.FArrayVector;
 import jcuda.Pointer;
 import jcuda.Sizeof;
@@ -61,6 +62,18 @@ public class JcudaVectorInscale { //todo(ksen): reformat cp-ps
       a[i] = 1.f;
     }
     return new FArrayVector(a);
+  }
+
+  public static FMatrix FHadamard(final @NotNull FMatrix A, final @NotNull FMatrix B) {
+    final int rows = A.getRows();
+    final int columns = A.getColumns();
+    final FMatrix C = new FArrayMatrix(rows, columns);
+    for (int i = 0; i < rows; i++) {
+      for (int j = 0; j < columns; j++) {
+        C.set(i, j, A.get(i, j) * B.get(i, j));
+      }
+    }
+    return C;
   }
 
   public static FMatrix fSigmoid(final @NotNull FMatrix A) {

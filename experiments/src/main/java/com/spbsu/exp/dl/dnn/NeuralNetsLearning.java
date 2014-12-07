@@ -1,11 +1,22 @@
 package com.spbsu.exp.dl.dnn;
 
+import com.spbsu.exp.cuda.JcudaVectorInscale;
+import com.spbsu.exp.cuda.data.DataUtils;
 import com.spbsu.exp.cuda.data.FMatrix;
 import com.spbsu.exp.cuda.data.FVector;
+import com.spbsu.exp.cuda.data.impl.FArrayMatrix;
 import com.spbsu.exp.dl.Init;
+import gnu.trove.list.TIntList;
+import gnu.trove.list.array.TIntArrayList;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Random;
+
+import static com.spbsu.exp.cuda.JcublasHelper.*;
+import static com.spbsu.exp.cuda.JcublasHelper.fScale;
+import static com.spbsu.exp.cuda.JcublasHelper.fSubtr;
+import static com.spbsu.exp.cuda.JcudaVectorInscale.*;
+import static com.spbsu.exp.cuda.data.DataUtils.contractBottomRow;
 
 /**
  * jmll
@@ -19,8 +30,11 @@ public class NeuralNetsLearning {
   private float momentum;
   private float scalingAlpha;
   private float weightsPenalty;
+  private float nonSparsityPenalty;
+  private float sparsityTarget;
   private float dropoutLevel;
   private int epochsNumber;
+  private int batchSize;
 
   public NeuralNetsLearning(
       final @NotNull NeuralNets nn,
@@ -28,53 +42,91 @@ public class NeuralNetsLearning {
       final float momentum,
       final float scalingAlpha,
       final float weightsPenalty,
+      final float nonSparsityPenalty,
+      final float sparsityTarget,
       final float dropoutLevel,
-      final int epochsNumber
+      final int epochsNumber,
+      final int batchSize
   ) {
     this.nn = nn;
     this.alpha = alpha;
     this.momentum = momentum;
     this.scalingAlpha = scalingAlpha;
     this.weightsPenalty = weightsPenalty;
+    this.nonSparsityPenalty = nonSparsityPenalty;
+    this.sparsityTarget = sparsityTarget;
     this.dropoutLevel = dropoutLevel;
     this.epochsNumber = epochsNumber;
+    this.batchSize = batchSize;
   }
 
-  public void batchLearn(final @NotNull FMatrix X, final @NotNull FVector y, final int batchSize) {
-    final int batchesNumber = y.getDimension() / batchSize;
+  public void batchLearn(final @NotNull FMatrix X, final @NotNull FMatrix Y) {
+    final int examplesNumber = X.getColumns();
+    final int batchesNumber = examplesNumber / batchSize;
+    final int lastLayerIndex = nn.weights.length;
 
     for (int i = 0; i < epochsNumber; i++) {
-      for (int j = 0; j < batchesNumber; j++) {
+      final TIntArrayList examplesIndexes = DataUtils.randomPermutations(examplesNumber);
 
+      for (int j = 0; j < batchesNumber; j++) {
+        final TIntList indexes = examplesIndexes.subList(j * batchSize, (j + 1) * batchSize);
+        final FMatrix batchX = X.getColumnsRange(indexes);
+        final FMatrix batchY = Y.getColumnsRange(indexes);
+
+        final FMatrix output = nn.batchForward(batchX);
+        final FMatrix error = fSubtr(batchY, output);
+
+        final FMatrix[] D = backPropagation(error);
+        updateWeights(D);
       }
     }
   }
 
-  private void backPropagation() {
+  private FMatrix[] backPropagation(final FMatrix error) {
+    final int lastLayerIndex = nn.weights.length;
+    final FMatrix[] D = new FMatrix[lastLayerIndex + 1];
+    for (int i = 0; i < lastLayerIndex + 1; i++) {
+      final FMatrix activation = nn.activations[i];
+      D[i] = new FArrayMatrix(activation.getRows(), activation.getColumns());
+    }
 
+    D[lastLayerIndex] = FHadamard(fScale(error, -1.f), nn.outputRectifier.derivative(nn.activations[lastLayerIndex]));
+
+    for (int i = lastLayerIndex - 1; i > 0; i--) {
+      final FMatrix dA = nn.rectifier.derivative(nn.activations[i]);
+
+      //todo(ksen): non sparsity penalty
+
+      if (i + 1 == lastLayerIndex) {
+        D[i] = FHadamard(fMult(nn.weights[i], true, D[i + 1], false), dA); //todo(ksen): sparsity error
+      }
+      else {
+        D[i] = FHadamard(fMult(nn.weights[i], true, contractBottomRow(D[i]), false), dA); //todo(ksen): sparsity error
+      }
+
+      //todo(ksen): dropout
+    }
+    for (int i = 0; i < lastLayerIndex; i++) {
+      if (i + 1 == lastLayerIndex) {
+        D[i] = fScale(fMult(nn.activations[i], false, D[i + 1], true), 1.f / D[i + 1].getColumns());
+      }
+      else {
+        D[i] = fScale(fMult(nn.activations[i], false, contractBottomRow(D[i + 1]), true), 1.f / D[i + 1].getColumns());
+      }
+    }
+    return D;
   }
 
-  public void init(final @NotNull Init initMethod) {
-    switch (initMethod) {
-      case RANDOM_SMALL : {
-        final Random random = new Random();
-        final FMatrix[] W = nn.weights;
-        for (int i = 0; i < W.length; i++) {
-          final FMatrix wights = W[i];
+  private void updateWeights(final FMatrix[] D) {
+    final int weightsNumber = nn.weights.length;
+    for (int i = 0; i < weightsNumber; i++) {
+      //todo(ksen): L2 penalty
 
-          final int rows = wights.getRows();
-          final int columns = wights.getColumns();
-          for (int j = 0; j < rows; j++) {
-            for (int k = 0; k < columns; k++) {
-              wights.set(j, k, (random.nextFloat() - 0.5f) * 8 * (float)Math.sqrt(6. / (rows + columns - 1.)));
-            }
-          }
-        }
-        break;
-      }
-      case DO_NOTHING : {
-        break;
-      }
+      final FMatrix dW = fScale(D[i], alpha);
+
+      //todo(ksen): momentum
+
+      nn.weights[i] = fSubtr(nn.weights[i], dW);
     }
   }
 

@@ -1,8 +1,7 @@
 package com.spbsu.exp.dl.dnn.rectifiers;
 
-import com.spbsu.exp.cuda.data.FMatrix;
 import org.jetbrains.annotations.NotNull;
-import com.spbsu.exp.cuda.data.FVector;
+import com.spbsu.exp.cuda.data.FMatrix;
 
 /**
  * jmll
@@ -11,8 +10,8 @@ import com.spbsu.exp.cuda.data.FVector;
  */
 public interface Rectifier {
 
-  FVector activate(final @NotNull FVector z);
-
   FMatrix activate(final @NotNull FMatrix Z);
+
+  FMatrix derivative(final @NotNull FMatrix Z);
 
 }

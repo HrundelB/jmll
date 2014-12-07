@@ -1,5 +1,6 @@
 package com.spbsu.exp.cuda.data;
 
+import com.spbsu.exp.cuda.data.impl.FArrayMatrix;
 import org.junit.Test;
 import com.spbsu.exp.cuda.data.impl.FArrayVector;
 import org.junit.Assert;
@@ -22,5 +23,34 @@ public class DataUtilsTest extends Assert {
         assertTrue(i == A.get(i, j));
       }
     }
+  }
+
+  @Test
+  public void testExtendAsBottomRow() throws Exception {
+    FMatrix A = new FArrayMatrix(3, new float[]{1, 2, 3, 1, 2, 3, 1, 2, 3});
+    final FVector b = new FArrayVector(new float[]{4, 4, 4});
+
+    System.out.println(A);
+
+    A = DataUtils.extendAsBottomRow(A, b);
+
+    System.out.println(A);
+  }
+
+  @Test
+  public void testContractBottomRow() throws Exception {
+    FMatrix A = new FArrayMatrix(3, new float[]{1, 2, 3, 1, 2, 3, 1, 2, 3});
+
+    System.out.println(A);
+
+    A = DataUtils.contractBottomRow(A);
+
+    System.out.println(A);
+  }
+
+  @Test
+  public void testOnce() throws Exception {
+    System.out.println(DataUtils.once(3, 4));
+
   }
 }

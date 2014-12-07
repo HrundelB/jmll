@@ -121,7 +121,7 @@ public class RBMLearningTest extends Assert {
     //LEARN
     begin = System.currentTimeMillis();
     final RestrictedBoltzmannMachine rbm = new RestrictedBoltzmannMachine(784, 500, 1000, Init.DO_NOTHING);
-    final RBMLearning learning = new RBMLearning(rbm, 0.1f, 0.f, 15, 1000);
+    final RBMLearning learning = new RBMLearning(rbm, 0.1f, 0.f, 15);
 
     learning.learn(lX);
     System.out.println("Trained. " + (System.currentTimeMillis() - begin));
