@@ -1,8 +1,8 @@
 package com.spbsu.exp.cuda.data;
 
+import org.jetbrains.annotations.NotNull;
 import com.spbsu.exp.cuda.data.impl.FArrayVector;
 import gnu.trove.list.array.TIntArrayList;
-import org.jetbrains.annotations.NotNull;
 import com.spbsu.exp.cuda.data.impl.FArrayMatrix;
 
 import java.util.Random;
@@ -52,6 +52,25 @@ public class DataUtils {
   }
 
   @NotNull
+  public static FVector extendAsBottom(final @NotNull FVector a, final float alpha) {
+    final float[] aData = a.toArray();
+    final float[] bData = new float[aData.length + 1];
+    System.arraycopy(aData, 0, bData, 0, aData.length);
+    bData[aData.length] = alpha;
+
+    return new FArrayVector(bData);
+  }
+
+  @NotNull
+  public static FVector contractBottom(final @NotNull FVector a) {
+    final float[] aData = a.toArray();
+    final float[] bData = new float[aData.length - 1];
+    System.arraycopy(aData, 0, bData, 0, aData.length - 1);
+
+    return new FArrayVector(bData);
+  }
+
+  @NotNull
   public static FMatrix extendAsBottomRow(final @NotNull FMatrix A, final @NotNull FVector b) {
     final int rows = A.getRows();
     final int columns = A.getColumns();
@@ -91,6 +110,15 @@ public class DataUtils {
       data[i] = 1.f;
     }
     return new FArrayMatrix(rows, data);
+  }
+
+  @NotNull
+  public static float[] floatOnce(final int size) {
+    final float[] data = new float[size];
+    for (int i = 0; i < size; i++) {
+      data[i] = 1.f;
+    }
+    return data;
   }
 
   public static TIntArrayList randomPermutations(final int size) {

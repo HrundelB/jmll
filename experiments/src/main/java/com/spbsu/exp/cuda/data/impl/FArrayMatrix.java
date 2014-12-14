@@ -25,6 +25,13 @@ public class FArrayMatrix implements FMatrix {
     this.rows = rows;
   }
 
+  @NotNull
+  @Override
+  public FMatrix reproduce(final @NotNull float[] base) {
+    return new FArrayMatrix(getRows(), base);
+  }
+
+  @NotNull
   @Override
   public FMatrix set(final int i, final int j, final float value) {
     data[i + j * rows] = value;
@@ -83,6 +90,7 @@ public class FArrayMatrix implements FMatrix {
     System.arraycopy(piece.toArray(), 0, data, rows * j, length);
   }
 
+  @NotNull
   @Override
   public float[] toArray() {
     return data;
@@ -96,8 +104,11 @@ public class FArrayMatrix implements FMatrix {
     return data.length / rows;
   }
 
-  @Override
   public String toString() {
+    return "[" + getRows() + " x " + getColumns() + "]";
+  }
+
+  public String toString(int a) {
     final StringBuilder builder = new StringBuilder();
 
     final int columns = getColumns();

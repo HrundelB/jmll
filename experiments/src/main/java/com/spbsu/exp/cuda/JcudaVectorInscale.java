@@ -1,5 +1,6 @@
 package com.spbsu.exp.cuda;
 
+import org.jetbrains.annotations.NotNull;
 import com.spbsu.exp.cuda.data.FMatrix;
 import com.spbsu.exp.cuda.data.FVector;
 import com.spbsu.exp.cuda.data.impl.FArrayMatrix;
@@ -12,7 +13,6 @@ import jcuda.jcurand.curandGenerator;
 import jcuda.jcurand.curandRngType;
 import jcuda.runtime.JCuda;
 import jcuda.runtime.cudaMemcpyKind;
-import org.jetbrains.annotations.NotNull;
 
 import static jcuda.jcurand.JCurand.*;
 import static jcuda.runtime.JCuda.*;
@@ -56,12 +56,15 @@ public class JcudaVectorInscale { //todo(ksen): reformat cp-ps
     return a;
   }
 
-  public static FVector FIdentity(final int size) {
-    final float[] a = new float[size];
-    for (int i = 0; i < size; i++) {
-      a[i] = 1.f;
+  public static FMatrix FTanh(final @NotNull FMatrix A) {
+    final int rows = A.getRows();
+    final int columns = A.getColumns();
+    for (int i = 0; i < rows; i++) {
+      for (int j = 0; j < columns; j++) {
+        A.set(i, j, (float)Math.tanh(A.get(i, j)));
+      }
     }
-    return new FArrayVector(a);
+    return A;
   }
 
   public static FMatrix FHadamard(final @NotNull FMatrix A, final @NotNull FMatrix B) {

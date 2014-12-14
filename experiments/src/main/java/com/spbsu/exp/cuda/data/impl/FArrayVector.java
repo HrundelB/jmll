@@ -1,8 +1,8 @@
 package com.spbsu.exp.cuda.data.impl;
 
+import org.jetbrains.annotations.NotNull;
 import com.spbsu.exp.cuda.data.FVector;
 import gnu.trove.list.TIntList;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * jmll
@@ -21,11 +21,18 @@ public class FArrayVector implements FVector {
     data = new float[dimension];
   }
 
+  @NotNull
+  @Override
+  public FVector reproduce(final @NotNull float[] base) {
+    return new FArrayVector(base);
+  }
+
   @Override
   public float get(final int index) {
     return data[index];
   }
 
+  @NotNull
   @Override
   public FVector set(int index, float value) {
     data[index] = value;
@@ -43,6 +50,7 @@ public class FArrayVector implements FVector {
     return new FArrayVector(subVector);
   }
 
+  @NotNull
   @Override
   public float[] toArray() {
     return data;
@@ -53,8 +61,11 @@ public class FArrayVector implements FVector {
     return data.length;
   }
 
-  @Override
   public String toString() {
+    return "[" + getDimension() + "]";
+  }
+
+  public String toString(int a) {
     final StringBuilder builder = new StringBuilder();
     for (int i = 0; i < data.length; i++) {
       builder.append(data[i]).append(' ');

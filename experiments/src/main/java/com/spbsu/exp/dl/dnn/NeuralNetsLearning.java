@@ -27,37 +27,30 @@ public class NeuralNetsLearning {
 
   private NeuralNets nn;
   private float alpha;
-  private float momentum;
-  private float scalingAlpha;
-  private float weightsPenalty;
-  private float nonSparsityPenalty;
-  private float sparsityTarget;
-  private float dropoutLevel;
+//  private float momentum;
+//  private float scalingAlpha;
+//  private float weightsPenalty;
+//  private float nonSparsityPenalty;
+//  private float sparsityTarget;
+//  private float dropoutLevel;
   private int epochsNumber;
   private int batchSize;
 
   public NeuralNetsLearning(
       final @NotNull NeuralNets nn,
       final float alpha,
-      final float momentum,
-      final float scalingAlpha,
-      final float weightsPenalty,
-      final float nonSparsityPenalty,
-      final float sparsityTarget,
-      final float dropoutLevel,
-      final int epochsNumber,
-      final int batchSize
+      final int epochsNumber
   ) {
     this.nn = nn;
     this.alpha = alpha;
-    this.momentum = momentum;
-    this.scalingAlpha = scalingAlpha;
-    this.weightsPenalty = weightsPenalty;
-    this.nonSparsityPenalty = nonSparsityPenalty;
-    this.sparsityTarget = sparsityTarget;
-    this.dropoutLevel = dropoutLevel;
+//    this.momentum = momentum;
+//    this.scalingAlpha = scalingAlpha;
+//    this.weightsPenalty = weightsPenalty;
+//    this.nonSparsityPenalty = nonSparsityPenalty;
+//    this.sparsityTarget = sparsityTarget;
+//    this.dropoutLevel = dropoutLevel;
     this.epochsNumber = epochsNumber;
-    this.batchSize = batchSize;
+    this.batchSize = nn.batchSize;
   }
 
   public void batchLearn(final @NotNull FMatrix X, final @NotNull FMatrix Y) {
@@ -79,6 +72,7 @@ public class NeuralNetsLearning {
         final FMatrix[] D = backPropagation(error);
         updateWeights(D);
       }
+      System.out.println("Epoch " + i);
     }
   }
 
@@ -90,10 +84,10 @@ public class NeuralNetsLearning {
       D[i] = new FArrayMatrix(activation.getRows(), activation.getColumns());
     }
 
-    D[lastLayerIndex] = FHadamard(fScale(error, -1.f), nn.outputRectifier.derivative(nn.activations[lastLayerIndex]));
+    D[lastLayerIndex] = FHadamard(fScale(error, -1.f), (FMatrix)nn.outputRectifier.df(nn.activations[lastLayerIndex]));
 
     for (int i = lastLayerIndex - 1; i > 0; i--) {
-      final FMatrix dA = nn.rectifier.derivative(nn.activations[i]);
+      final FMatrix dA = (FMatrix)nn.rectifier.df(nn.activations[i]);
 
       //todo(ksen): non sparsity penalty
 
@@ -101,17 +95,17 @@ public class NeuralNetsLearning {
         D[i] = FHadamard(fMult(nn.weights[i], true, D[i + 1], false), dA); //todo(ksen): sparsity error
       }
       else {
-        D[i] = FHadamard(fMult(nn.weights[i], true, contractBottomRow(D[i]), false), dA); //todo(ksen): sparsity error
+        D[i] = FHadamard(fMult(nn.weights[i], true, contractBottomRow(D[i + 1]), false), dA); //todo(ksen): sparsity error
       }
 
       //todo(ksen): dropout
     }
     for (int i = 0; i < lastLayerIndex; i++) {
       if (i + 1 == lastLayerIndex) {
-        D[i] = fScale(fMult(nn.activations[i], false, D[i + 1], true), 1.f / D[i + 1].getColumns());
+        D[i] = fScale(fMult(D[i + 1], false, nn.activations[i], true), 1.f / D[i + 1].getColumns());
       }
       else {
-        D[i] = fScale(fMult(nn.activations[i], false, contractBottomRow(D[i + 1]), true), 1.f / D[i + 1].getColumns());
+        D[i] = fScale(fMult(contractBottomRow(D[i + 1]), false, nn.activations[i], true), 1.f / D[i + 1].getColumns());
       }
     }
     return D;

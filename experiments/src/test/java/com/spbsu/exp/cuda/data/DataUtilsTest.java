@@ -50,7 +50,14 @@ public class DataUtilsTest extends Assert {
 
   @Test
   public void testOnce() throws Exception {
-    System.out.println(DataUtils.once(3, 4));
+    FVector a = new FArrayVector(new float[]{1, 2, 3});
 
+    final FArrayVector b = (FArrayVector)DataUtils.extendAsBottom(a, 10);
+
+    System.out.println(b.toString(2));
+
+    final FArrayVector c = (FArrayVector)DataUtils.contractBottom(b);
+
+    System.out.println(c.toString(2));
   }
 }
