@@ -148,6 +148,7 @@ public class NeuralNets {
             W.set(row, column, byteBuffer.getFloat());
           }
         }
+        weights[i] = W;
       }
     }
     catch (IOException e) {
